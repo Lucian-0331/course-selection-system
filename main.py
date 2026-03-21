@@ -183,13 +183,11 @@ if st.session_state.current_page == "系統首頁":
     total_after_this_sem = accumulated_credits + current_enrolled_credits
     needed_credits = max(128 - total_after_this_sem, 0)
     
-    # 獲取當下時間
     current_time_str = datetime.datetime.now().strftime("%Y年%m月%d日 %H:%M")
 
     st.title(f"👋 歡迎回來，{st.session_state.name.split(' ')[0]}！")
     st.markdown("<p style='font-size: 1.1rem; margin-bottom: 15px;'>在這裡掌握您的學習進度與最新課程動態，為新學期做好完美規劃。</p>", unsafe_allow_html=True)
     
-    # 🌟 修改區：美化後的懸浮膠囊時間標籤
     st.markdown(f"""
         <div style='display: inline-flex; align-items: center; background-color: #FFFFFF; border: 1px solid #EAE6E3; padding: 6px 18px; border-radius: 30px; box-shadow: 0 2px 8px rgba(160, 150, 140, 0.1); margin-bottom: 30px;'>
             <span style='font-size: 16px; margin-right: 8px; color: #888;'>🕒</span>
@@ -417,8 +415,20 @@ elif st.session_state.current_page == "視覺化介面":
             values_closed = values_closed + values_closed[:1]
             fig_radar = go.Figure()
             fig_radar.add_trace(go.Scatterpolar(r=values_closed, theta=categories + [categories[0]], fill='toself', fillcolor='rgba(135, 206, 250, 0.6)', line=dict(color='#5BC0DE')))
-            fig_radar.update_layout(polar=dict(radialaxis=dict(range=[0, 5], showticklabels=False)), showlegend=False, height=300, margin=dict(l=30, r=30, t=20, b=20))
-            st.plotly_chart(fig_radar, use_container_width=True)
+            # 🌟 這裡加上了圖表完全透明化的設定
+            fig_radar.update_layout(
+                polar=dict(
+                    bgcolor='rgba(0,0,0,0)', 
+                    radialaxis=dict(range=[0, 5], showticklabels=False)
+                ),
+                paper_bgcolor='rgba(0,0,0,0)',
+                plot_bgcolor='rgba(0,0,0,0)',
+                showlegend=False, 
+                height=300, 
+                margin=dict(l=30, r=30, t=20, b=20)
+            )
+            # 🌟 加入 theme=None 阻擋官方覆蓋設定
+            st.plotly_chart(fig_radar, use_container_width=True, theme=None)
 
 elif st.session_state.current_page == "詳細課程":
     st.markdown("<h2 style='color: #333; font-weight: 800; margin-bottom: 5px;'>📖 課程詳細資訊</h2>", unsafe_allow_html=True)
