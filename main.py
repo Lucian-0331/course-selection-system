@@ -187,8 +187,15 @@ if st.session_state.current_page == "系統首頁":
     current_time_str = datetime.datetime.now().strftime("%Y年%m月%d日 %H:%M")
 
     st.title(f"👋 歡迎回來，{st.session_state.name.split(' ')[0]}！")
-    st.markdown("<p style='font-size: 1.1rem; margin-bottom: 5px;'>在這裡掌握您的學習進度與最新課程動態，為新學期做好完美規劃。</p>", unsafe_allow_html=True)
-    st.markdown(f"<p style='font-size: 0.95rem; color: #777; margin-bottom: 30px; font-weight: 600;'>🕒 系統時間：{current_time_str}</p>", unsafe_allow_html=True)
+    st.markdown("<p style='font-size: 1.1rem; margin-bottom: 15px;'>在這裡掌握您的學習進度與最新課程動態，為新學期做好完美規劃。</p>", unsafe_allow_html=True)
+    
+    # 🌟 修改區：美化後的懸浮膠囊時間標籤
+    st.markdown(f"""
+        <div style='display: inline-flex; align-items: center; background-color: #FFFFFF; border: 1px solid #EAE6E3; padding: 6px 18px; border-radius: 30px; box-shadow: 0 2px 8px rgba(160, 150, 140, 0.1); margin-bottom: 30px;'>
+            <span style='font-size: 16px; margin-right: 8px; color: #888;'>🕒</span>
+            <span style='color: #555; font-size: 0.95rem; font-weight: 700; letter-spacing: 0.5px;'>系統時間：<span style='color: #4A7C59;'>{current_time_str}</span></span>
+        </div>
+    """, unsafe_allow_html=True)
 
     st.markdown("### 📊 畢業學分進度")
     col1, col2, col3 = st.columns(3)
@@ -692,7 +699,6 @@ elif st.session_state.current_page == "個人設定":
     st.write("") 
     col_save1, col_save2, col_save3 = st.columns([1, 1, 2])
     with col_save1:
-        if st.button("💾 儲存所有設定", use_container_width=True): st.success("✅ 設定已存檔！!")
+        if st.button("💾 儲存所有設定", use_container_width=True): st.success("✅ 設定已存檔！")
     with col_save2:
         if st.button("🔄 重置偏好", on_click=reset_all_prefs, use_container_width=True): st.warning("⚠️ 已重置為預設興趣與課程偏好")
-        
