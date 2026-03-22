@@ -454,10 +454,11 @@ elif st.session_state.current_page == "視覺化介面":
                             st.toast(f"「{target_course_name}」已經在您的收藏清單中囉！", icon="⚠️")
                         else:
                             c_type_raw = str(course_info.get('必選修', '選修')).upper()
-                            c_type = '必修' if c_type_raw == 'M' else '選修' if c_type_raw == 'O' else str(course_info.get('修別', '選修'))
-                            try: credits = int(float(course_info.get('學分', course_info.get('學分數', 2))))
+                            c_type = '必修' if c_type_raw == 'M' else '選修'
+                            try: credits = int(float(course_info.get('學分', 2)))
                             except: credits = 2
-                            raw_time = str(course_info.get('上課時間', course_info.get('節次', ''))).replace(" ", "")
+                            
+                            raw_time = str(course_info.get('上課時間', '')).replace(" ", "")
                             time_slots = []
                             for match in re.finditer(r'\(?([一二三四五六日])\)?([0-9A-Za-z,\-~]+)', raw_time):
                                 day, periods_str = match.group(1), match.group(2)
@@ -468,7 +469,7 @@ elif st.session_state.current_page == "視覺化介面":
                                             if s_str.isdigit() and e_str.isdigit():
                                                 for p in range(int(s_str), int(e_str) + 1): time_slots.append(f"{day}{p}")
                                             else: time_slots.extend([f"{day}{s_str.upper()}", f"{day}{e_str.upper()}"])
-                                        except: pass 
+                                        except: pass
                                     else: time_slots.append(f"{day}{int(part)}" if part.isdigit() else f"{day}{part.upper()}")
                             st.session_state.my_courses.append({"id": c_code, "name": target_course_name, "time": time_slots, "credits": credits, "type": c_type, "enrolled": False})
                             st.toast(f"已將「{target_course_name}」加入您的收藏清單！", icon="✨")
@@ -490,8 +491,19 @@ elif st.session_state.current_page == "視覺化介面":
             line_color = '#5BC0DE' if target_course_name else '#cccccc'
             fig_radar = go.Figure()
             fig_radar.add_trace(go.Scatterpolar(r=values_closed, theta=categories + [categories[0]], fill='toself', fillcolor=fill_color, line=dict(color=line_color), marker=dict(size=1)))
-            fig_radar.update_layout(polar=dict(radialaxis=dict(range=[0, 5], showticklabels=False), angularaxis=dict(tickfont=dict(size=12, color='#555' if target_course_name else '#aaa'))), showlegend=False, height=300, paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', margin=dict(l=30, r=30, t=20, b=20))
-            st.plotly_chart(fig_radar, use_container_width=True)
+            fig_radar.update_layout(
+                polar=dict(
+                    bgcolor='rgba(0,0,0,0)', 
+                    radialaxis=dict(range=[0, 5], showticklabels=False), 
+                    angularaxis=dict(tickfont=dict(size=12, color='#555' if target_course_name else '#aaa'))
+                ), 
+                showlegend=False, 
+                height=300, 
+                paper_bgcolor='rgba(0,0,0,0)', 
+                plot_bgcolor='rgba(0,0,0,0)', 
+                margin=dict(l=30, r=30, t=20, b=20)
+            )
+            st.plotly_chart(fig_radar, use_container_width=True, theme=None)
 
 elif st.session_state.current_page == "詳細課程":
     st.markdown("<h2 style='color: #333; font-weight: 800; margin-bottom: 5px;'>📖 課程詳細資訊</h2>", unsafe_allow_html=True)
@@ -502,23 +514,31 @@ elif st.session_state.current_page == "詳細課程":
 
     target_id = st.session_state.get('target_course_id')
     target_name = st.session_state.get('saved_course', "請選擇...")
-    matches = []
     
-    if target_id and not df_courses.empty:
-        matches = df_courses[df_courses['選課代號'].astype(str) == str(target_id)]['UID'].tolist()
+    # 🌟 徹底捨棄舊的 df_courses，改用 SQLite 讀取出來的 data 來找資料
+    matches = pd.DataFrame()
+    
+    if target_id and not data.empty:
+        matches = data[data['選課代號'].astype(str) == str(target_id)]
         
-    if not matches and target_name not in ["請選擇...", "先選學期...", "查無結果..."] and not df_courses.empty:
-        matches = df_courses[df_courses['課程名稱'].astype(str).str.contains(target_name, na=False, regex=False)]['UID'].tolist()
+    if matches.empty and target_name not in ["請選擇...", "先選學期...", "查無結果..."] and not data.empty:
+        matches = data[data['課程名稱'].astype(str).str.contains(target_name, na=False, regex=False)]
     
-    if not matches:
+    if matches.empty:
         if target_name not in ["請選擇...", "先選學期...", "查無結果..."]:
             st.info(f"💡 這是範例展示課程。請返回「視覺化介面」篩選真實課程以檢視完整數據與圖表！")
         else:
             st.warning("⚠️ 請先至「系統首頁」或「視覺化介面」選擇一門課程後，再查看詳細資訊。")
     else:
-        selected_uid = matches[0]
-        course_data = df_courses[df_courses['UID'] == selected_uid].iloc[0]
+        # 🌟 成功找到資料，讀取第一筆匹配的內容
+        course_data = matches.iloc[0]
         current_code = str(course_data['選課代號'] if '選課代號' in course_data else "Unknown")
+        
+        # 🌟 動態生成畫面上要顯示的標籤 (UID)
+        year_str = str(course_data.get('yms_year', '未知年次'))
+        sem_str = str(course_data.get('學期', '未知學期'))
+        name_str = str(course_data.get('課程名稱', target_name))
+        selected_uid = f"[{year_str}-{sem_str}] [{current_code}] {name_str}"
         
         if current_code not in st.session_state.comments_db: st.session_state.comments_db[current_code] = []
         current_comments = st.session_state.comments_db[current_code]
@@ -529,6 +549,7 @@ elif st.session_state.current_page == "詳細課程":
             exclude_cols = ['UID', '學期']
             col1, col2 = st.columns(2)
             display_index = 0
+            
             for col_name in course_data.index:
                 if col_name in exclude_cols: continue
                 val = course_data[col_name]
@@ -572,10 +593,10 @@ elif st.session_state.current_page == "詳細課程":
                 if any(c['id'] == current_code for c in st.session_state.my_courses): st.toast(f"「{c_name}」已經在您的收藏清單中囉！", icon="⚠️")
                 else:
                     c_type_raw = str(course_data.get('必選修', '選修')).upper()
-                    c_type = '必修' if c_type_raw == 'M' else '選修' if c_type_raw == 'O' else str(course_data.get('修別', '選修'))
-                    try: credits = int(float(course_data.get('學分', course_data.get('學分數', 2))))
+                    c_type = '必修' if c_type_raw == 'M' else '選修'
+                    try: credits = int(float(course_data.get('學分', 2)))
                     except: credits = 2
-                    raw_time = str(course_data.get('上課時間', course_data.get('節次', ''))).replace(" ", "")
+                    raw_time = str(course_data.get('上課時間', '')).replace(" ", "")
                     time_slots = []
                     for match in re.finditer(r'\(?([一二三四五六日])\)?([0-9A-Za-z,\-~]+)', raw_time):
                         day, periods_str = match.group(1), match.group(2)
@@ -700,7 +721,6 @@ elif st.session_state.current_page == "個人設定":
                 
         col1, col2 = st.columns([1, 3])
         with col1:
-            # 🎯 頭像顯示與完美隱藏的上傳框
             st.image(st.session_state.avatar, width=120)
             if st.button("📸 更換頭像", use_container_width=True):
                 st.session_state.show_uploader = not st.session_state.show_uploader
@@ -710,7 +730,7 @@ elif st.session_state.current_page == "個人設定":
                 uploaded_file = st.file_uploader("上傳新頭像", type=["jpg", "png", "jpeg"], label_visibility="collapsed")
                 if uploaded_file is not None:
                     st.session_state.avatar = uploaded_file.getvalue()
-                    st.session_state.show_uploader = False  # 🎯 上傳成功後自動隱藏框框
+                    st.session_state.show_uploader = False
                     st.rerun()
 
         with col2:
@@ -759,13 +779,11 @@ elif st.session_state.current_page == "個人設定":
         with col_interest_left:
             st.markdown("##### 專業領域 (系內課群)")
             for field in st.session_state.prefs["prof"].keys(): 
-                # 🎯 從記憶體中讀取狀態，確保切換頁面不重置
                 st.session_state.prefs["prof"][field] = st.checkbox(field, value=st.session_state.prefs["prof"][field])
                 
         with col_interest_right:
             st.markdown("##### 跨域/通識偏好 (向度分類)")
             for field in st.session_state.prefs["cross"].keys(): 
-                # 🎯 從記憶體中讀取狀態
                 st.session_state.prefs["cross"][field] = st.checkbox(field, value=st.session_state.prefs["cross"][field])
 
     with st.container(border=True):
@@ -775,7 +793,6 @@ elif st.session_state.current_page == "個人設定":
             st.write("**偏好的作業負擔程度：**")
             workload_options = ["輕鬆 😌", "適中 😊", "充實 💪", "極具挑戰 🔥"]
             idx = workload_options.index(st.session_state.prefs["workload"])
-            # 🎯 從記憶體中讀取 Radio 按鈕狀態
             st.session_state.prefs["workload"] = st.radio("選擇作業負擔程度", workload_options, index=idx, label_visibility="collapsed", horizontal=True)
             st.caption(f"目前狀態：{st.session_state.prefs['workload']}")
             
@@ -785,7 +802,6 @@ elif st.session_state.current_page == "個人設定":
             cols_type = st.columns(4)
             for i, course in enumerate(course_types):
                 with cols_type[i]: 
-                    # 🎯 從記憶體中讀取狀態
                     st.session_state.prefs["course"][course] = st.checkbox(course, value=st.session_state.prefs["course"][course])
 
     st.write("") 
