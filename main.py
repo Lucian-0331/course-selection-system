@@ -7,6 +7,7 @@ import numpy as np
 from collections import defaultdict
 import re
 import random
+import datetime
 
 # ==========================================
 # 1. 全局頁面設定與共用 CSS
@@ -80,7 +81,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ==========================================
-# 2. 共用資料讀取函數
+# 2. 統一資料讀取函數 (只讀 SQLite)
 # ==========================================
 @st.cache_data(ttl=3600)
 def load_data():
@@ -113,52 +114,12 @@ data, radar_data = load_data()
 categories = ["作業負擔", "考試難度", "實務性", "理論性", "互動程度"]
 
 @st.cache_data
-def load_and_clean_data():
-    try:
-        try: df = pd.read_excel("data.xlsx", sheet_name="1131-114開課")
-        except: df = pd.read_csv("data.xlsx - 1131-114開課.csv")
-            
-        df.columns = df.columns.astype(str).str.strip()
-        cols_to_drop = ['sub_id', 'scr_dup', '配當系所', '課程編碼', '工具分類', 'seq_no', '周次', 'EMI註記', '配當年', '進度內容']
-        df = df.drop(columns=[c for c in cols_to_drop if c in df.columns])
-        
-        rename_dict = {'yms_year': '年次', 'yms_smester': '學期', 'cls_id': '課程代碼', '開課班級簡稱': '開課班級', '科目簡稱': '課程名稱', '配當系所.1': '配當系所'}
-        df = df.rename(columns=rename_dict)
-        
-        if '開課班級' in df.columns and '課程名稱' in df.columns:
-            df['開課班級'] = df['開課班級'].fillna('未知班級')
-            df['課程名稱'] = df['課程名稱'].astype(str) + " (" + df['開課班級'].astype(str) + ")"
-        
-        if '學期' in df.columns:
-            df['學期'] = df['學期'].astype(str).replace({'1': '上學期', '2': '下學期', '1.0': '上學期', '2.0': '下學期'})
-        
-        name_col = '課程名稱' if '課程名稱' in df.columns else df.columns[7]
-        code_col = '選課代號' if '選課代號' in df.columns else df.columns[5]
-        
-        if all(col in df.columns for col in ['年次', '學期']):
-            df_unique = df.drop_duplicates(subset=['年次', '學期', code_col]).copy()
-        else:
-            df_unique = df.drop_duplicates(subset=[code_col]).copy()
-            
-        df_unique = df_unique.fillna("無")
-        
-        if all(col in df_unique.columns for col in ['年次', '學期']):
-            df_unique['UID'] = "[" + df_unique['年次'].astype(str) + "-" + df_unique['學期'] + "] [" + df_unique[code_col].astype(str) + "] " + df_unique[name_col].astype(str)
-        else:
-            df_unique['UID'] = "[" + df_unique[code_col].astype(str) + "] " + df_unique[name_col].astype(str)
-        return df_unique
-    except Exception as e:
-        return pd.DataFrame()
-
-@st.cache_data
 def get_fixed_trend_data(course_code):
     random.seed(course_code)
     return pd.DataFrame({"Year": ['109', '110', '111', '112', '113'], "Students": [random.randint(40, 120) for _ in range(5)], "AvgScore": [random.randint(65, 95) for _ in range(5)]})
 
-df_courses = load_and_clean_data()
-
 # ==========================================
-# 3. 初始化全局記憶體 (防彈保險箱)
+# 3. 初始化全局記憶體
 # ==========================================
 if 'current_page' not in st.session_state: st.session_state.current_page = "系統首頁"
 if 'saved_dept' not in st.session_state: st.session_state.saved_dept = "請選擇..."
@@ -172,7 +133,7 @@ if 'search_term' not in st.session_state: st.session_state.search_term = ""
 if 'avatar' not in st.session_state: st.session_state.avatar = "https://www.w3schools.com/howto/img_avatar.png" 
 if 'show_uploader' not in st.session_state: st.session_state.show_uploader = False
 
-# 🎯 個人偏好設定記憶體 (保證切換頁面不重置)
+# 🎯 個人偏好設定記憶體
 if 'prefs' not in st.session_state:
     st.session_state.prefs = {
         "prof": {"🏭 生產與製造": False, "📈 品質管理": False, "💻 程式與資訊": False, "📊 數據分析": False, "⚙️ 系統模擬": False, "💼 科技管理": False},
@@ -225,9 +186,18 @@ if st.session_state.current_page == "系統首頁":
     accumulated_credits = 85 
     total_after_this_sem = accumulated_credits + current_enrolled_credits
     needed_credits = max(128 - total_after_this_sem, 0)
+    
+    current_time_str = datetime.datetime.now().strftime("%Y年%m月%d日 %H:%M")
 
     st.title(f"👋 歡迎回來，{st.session_state.name.split(' ')[0]}！")
-    st.markdown("<p style='font-size: 1.1rem; margin-bottom: 30px;'>在這裡掌握您的學習進度與最新課程動態，為新學期做好完美規劃。</p>", unsafe_allow_html=True)
+    st.markdown("<p style='font-size: 1.1rem; margin-bottom: 15px;'>在這裡掌握您的學習進度與最新課程動態，為新學期做好完美規劃。</p>", unsafe_allow_html=True)
+    
+    st.markdown(f"""
+        <div style='display: inline-flex; align-items: center; background-color: #FFFFFF; border: 1px solid #EAE6E3; padding: 6px 18px; border-radius: 30px; box-shadow: 0 2px 8px rgba(160, 150, 140, 0.1); margin-bottom: 30px;'>
+            <span style='font-size: 16px; margin-right: 8px; color: #888;'>🕒</span>
+            <span style='color: #555; font-size: 0.95rem; font-weight: 700; letter-spacing: 0.5px;'>系統時間：<span style='color: #4A7C59;'>{current_time_str}</span></span>
+        </div>
+    """, unsafe_allow_html=True)
 
     st.markdown("### 📊 畢業學分進度")
     col1, col2, col3 = st.columns(3)
@@ -411,7 +381,7 @@ elif st.session_state.current_page == "視覺化介面":
             fig_scatter = go.Figure().update_layout(plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', height=350, margin=dict(l=20, r=20, t=20, b=20), xaxis=dict(showticklabels=False), yaxis=dict(showticklabels=False))
             st.plotly_chart(fig_scatter, use_container_width=True, key="empty_chart")
         else:
-            fig_scatter = px.scatter(filtered, x="難度", y="滿意度", hover_name="課程名稱", hover_data={"難度": True, "滿意度": True, "選課代號": True, "學分數": True}, custom_data=["選課代號", "課程名稱"])
+            fig_scatter = px.scatter(filtered, x="難度", y="滿意度", hover_name="課程名稱", hover_data={"難度": True, "滿意度": True, "選課代號": True}, custom_data=["選課代號", "課程名稱"])
             selected_idx = np.where(filtered["課程名稱"] == selected_course)[0].tolist() if selected_course not in ["請選擇...", "先選學期...", "查無結果..."] else None
             fig_scatter.update_traces(selectedpoints=selected_idx, marker=dict(color='#D9534F', size=13, opacity=0.8, line=dict(width=1, color='white')))
             fig_scatter.update_layout(xaxis_title="課程難易度", yaxis_title="滿意度", xaxis=dict(range=[0.5, 5.5], gridcolor='#EFEFEF', fixedrange=True), yaxis=dict(range=[0.5, 5.5], gridcolor='#EFEFEF', fixedrange=True), plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', height=350, margin=dict(l=20, r=20, t=20, b=20), clickmode='event+select', dragmode=False)
@@ -457,7 +427,6 @@ elif st.session_state.current_page == "視覺化介面":
                             c_type = '必修' if c_type_raw == 'M' else '選修'
                             try: credits = int(float(course_info.get('學分', 2)))
                             except: credits = 2
-                            
                             raw_time = str(course_info.get('上課時間', '')).replace(" ", "")
                             time_slots = []
                             for match in re.finditer(r'\(?([一二三四五六日])\)?([0-9A-Za-z,\-~]+)', raw_time):
@@ -469,7 +438,7 @@ elif st.session_state.current_page == "視覺化介面":
                                             if s_str.isdigit() and e_str.isdigit():
                                                 for p in range(int(s_str), int(e_str) + 1): time_slots.append(f"{day}{p}")
                                             else: time_slots.extend([f"{day}{s_str.upper()}", f"{day}{e_str.upper()}"])
-                                        except: pass
+                                        except: pass 
                                     else: time_slots.append(f"{day}{int(part)}" if part.isdigit() else f"{day}{part.upper()}")
                             st.session_state.my_courses.append({"id": c_code, "name": target_course_name, "time": time_slots, "credits": credits, "type": c_type, "enrolled": False})
                             st.toast(f"已將「{target_course_name}」加入您的收藏清單！", icon="✨")
@@ -515,7 +484,6 @@ elif st.session_state.current_page == "詳細課程":
     target_id = st.session_state.get('target_course_id')
     target_name = st.session_state.get('saved_course', "請選擇...")
     
-    # 🌟 徹底捨棄舊的 df_courses，改用 SQLite 讀取出來的 data 來找資料
     matches = pd.DataFrame()
     
     if target_id and not data.empty:
@@ -530,11 +498,9 @@ elif st.session_state.current_page == "詳細課程":
         else:
             st.warning("⚠️ 請先至「系統首頁」或「視覺化介面」選擇一門課程後，再查看詳細資訊。")
     else:
-        # 🌟 成功找到資料，讀取第一筆匹配的內容
         course_data = matches.iloc[0]
         current_code = str(course_data['選課代號'] if '選課代號' in course_data else "Unknown")
         
-        # 🌟 動態生成畫面上要顯示的標籤 (UID)
         year_str = str(course_data.get('yms_year', '未知年次'))
         sem_str = str(course_data.get('學期', '未知學期'))
         name_str = str(course_data.get('課程名稱', target_name))
@@ -546,15 +512,20 @@ elif st.session_state.current_page == "詳細課程":
         with st.container(border=True):
             st.markdown(f"### 📌 課程完整資訊")
             st.markdown(f"<div style='background-color: #E2DCD5; padding: 6px 16px; border-radius: 8px; display: inline-block; margin-bottom: 18px; font-weight: bold; color: #222; border: 1px solid #D0C8C0;'>{selected_uid}</div>", unsafe_allow_html=True)
-            exclude_cols = ['UID', '學期']
+            
+            # 🌟 這裡換成你專屬的「白名單過濾陣列」，系統只會挑選這裡面有的印出來！
+            target_cols = ['選課代號', '開課班級', '科目簡稱', '學分數', '學分', '必選修', '上課時間', 'EMI註記', '授課方式', '授課語言', '系所', '課程描述_中', '課程描述_英']
             col1, col2 = st.columns(2)
             display_index = 0
             
-            for col_name in course_data.index:
-                if col_name in exclude_cols: continue
+            for col_name in target_cols:
+                # 檢查這個欄位在不在資料庫裡，如果不在就跳過
+                if col_name not in course_data.index: continue
+                
                 val = course_data[col_name]
                 if col_name == '必選修':
                     val = '必修' if str(val).upper() == 'M' else '選修' if str(val).upper() == 'O' else val
+                
                 if isinstance(val, str) and len(val) > 25:
                     st.markdown(f"<div style='margin-bottom: 14px; background-color: #F8F6F1; padding: 16px; border-radius: 12px; border: 1px solid #E2DCD5;'><span style='font-weight: 800; color: #444; font-size: 1.05rem;'>📑 {col_name}：</span><br><span style='color: #222; font-weight: 600; font-size: 1rem; line-height: 1.6; display: inline-block; margin-top: 8px;'>{val}</span></div>", unsafe_allow_html=True)
                 else:
