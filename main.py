@@ -8,6 +8,7 @@ from collections import defaultdict
 import re
 import random
 import datetime
+import streamlit.components.v1 as components
 
 # ==========================================
 # 1. 全局頁面設定與共用 CSS
@@ -187,17 +188,37 @@ if st.session_state.current_page == "系統首頁":
     total_after_this_sem = accumulated_credits + current_enrolled_credits
     needed_credits = max(128 - total_after_this_sem, 0)
     
-    current_time_str = datetime.datetime.now().strftime("%Y年%m月%d日 %H:%M")
-
     st.title(f"👋 歡迎回來，{st.session_state.name.split(' ')[0]}！")
     st.markdown("<p style='font-size: 1.1rem; margin-bottom: 15px;'>在這裡掌握您的學習進度與最新課程動態，為新學期做好完美規劃。</p>", unsafe_allow_html=True)
     
-    st.markdown(f"""
-        <div style='display: inline-flex; align-items: center; background-color: #FFFFFF; border: 1px solid #EAE6E3; padding: 6px 18px; border-radius: 30px; box-shadow: 0 2px 8px rgba(160, 150, 140, 0.1); margin-bottom: 30px;'>
-            <span style='font-size: 16px; margin-right: 8px; color: #888;'>🕒</span>
-            <span style='color: #555; font-size: 0.95rem; font-weight: 700; letter-spacing: 0.5px;'>系統時間：<span style='color: #4A7C59;'>{current_time_str}</span></span>
-        </div>
-    """, unsafe_allow_html=True)
+    # 🌟 這裡插入了 Javascript 動態時鐘魔法！
+    components.html(
+        """
+        <body style="margin: 0; padding: 0; overflow: hidden; background-color: transparent;">
+            <div style="font-family: sans-serif; display: flex; align-items: center;">
+                <div style="display: inline-flex; align-items: center; background-color: #FFFFFF; border: 1px solid #EAE6E3; padding: 6px 18px; border-radius: 30px; box-shadow: 0 2px 8px rgba(160, 150, 140, 0.1);">
+                    <span style="font-size: 16px; margin-right: 8px; color: #888;">🕒</span>
+                    <span style="color: #555; font-size: 15px; font-weight: 700; letter-spacing: 0.5px;">系統時間：<span id="clock" style="color: #4A7C59; font-family: monospace; font-size: 16px;"></span></span>
+                </div>
+            </div>
+            <script>
+                function updateTime() {
+                    const now = new Date();
+                    const year = now.getFullYear();
+                    const month = String(now.getMonth() + 1).padStart(2, '0');
+                    const day = String(now.getDate()).padStart(2, '0');
+                    const hours = String(now.getHours()).padStart(2, '0');
+                    const minutes = String(now.getMinutes()).padStart(2, '0');
+                    const seconds = String(now.getSeconds()).padStart(2, '0');
+                    document.getElementById('clock').innerText = `${year}年${month}月${day}日 ${hours}:${minutes}:${seconds}`;
+                }
+                setInterval(updateTime, 1000);
+                updateTime(); // 立即觸發一次避免載入延遲
+            </script>
+        </body>
+        """,
+        height=45
+    )
 
     st.markdown("### 📊 畢業學分進度")
     col1, col2, col3 = st.columns(3)
@@ -460,8 +481,6 @@ elif st.session_state.current_page == "視覺化介面":
             line_color = '#5BC0DE' if target_course_name else '#cccccc'
             fig_radar = go.Figure()
             fig_radar.add_trace(go.Scatterpolar(r=values_closed, theta=categories + [categories[0]], fill='toself', fillcolor=fill_color, line=dict(color=line_color), marker=dict(size=1)))
-            
-            # 🌟 修復 1：鎖死雷達圖
             fig_radar.update_layout(
                 polar=dict(
                     bgcolor='rgba(0,0,0,0)', 
@@ -474,7 +493,6 @@ elif st.session_state.current_page == "視覺化介面":
                 plot_bgcolor='rgba(0,0,0,0)', 
                 margin=dict(l=30, r=30, t=20, b=20)
             )
-            # 使用 staticPlot=True 完全寫死雷達圖
             st.plotly_chart(fig_radar, use_container_width=True, theme=None, config={'staticPlot': True})
 
 elif st.session_state.current_page == "詳細課程":
@@ -544,21 +562,19 @@ elif st.session_state.current_page == "詳細課程":
             fig.add_trace(go.Scatter(x=trend_df.Year, y=trend_df.AvgScore, name='平均成績 (分)', line=dict(color='#C85A5A', width=4), yaxis='y1')) 
             fig.add_trace(go.Scatter(x=trend_df.Year, y=trend_df.Students, name='修課人數 (人)', line=dict(color='#4A7C59', width=4), yaxis='y2')) 
             
-            # 🌟 修復 2：鎖死折線圖，但保留滑鼠懸浮文字 (Hover)
             fig.update_layout(
                 margin=dict(l=50, r=50, t=40, b=40), 
                 height=300, 
                 paper_bgcolor='rgba(0,0,0,0)', 
                 plot_bgcolor='rgba(0,0,0,0)', 
                 font=dict(color="#000000", family="sans-serif", size=13), 
-                legend=dict(orientation="h", y=1.15, font=dict(color="#000000", size=14), itemclick=False, itemdoubleclick=False), # 禁用圖例點擊隱藏
-                xaxis=dict(tickfont=dict(color="#000000", size=13), gridcolor='#DCD5CE', linecolor='#A09890', linewidth=1, fixedrange=True), # 禁用 X 軸縮放
-                yaxis=dict(title=dict(text="平均成績 (分)", font=dict(color="#000000", size=14)), range=[0, 100], dtick=10, tickfont=dict(color="#000000", size=13), gridcolor='#DCD5CE', linecolor='#A09890', linewidth=1, fixedrange=True), # 禁用 Y 軸縮放
-                yaxis2=dict(title=dict(text="修課人數 (人)", font=dict(color="#000000", size=14)), range=[0, 150], dtick=30, tickfont=dict(color="#000000", size=13), overlaying='y', side='right', showgrid=False, linecolor='#A09890', linewidth=1, fixedrange=True), # 禁用 Y2 軸縮放
+                legend=dict(orientation="h", y=1.15, font=dict(color="#000000", size=14), itemclick=False, itemdoubleclick=False),
+                xaxis=dict(tickfont=dict(color="#000000", size=13), gridcolor='#DCD5CE', linecolor='#A09890', linewidth=1, fixedrange=True),
+                yaxis=dict(title=dict(text="平均成績 (分)", font=dict(color="#000000", size=14)), range=[0, 100], dtick=10, tickfont=dict(color="#000000", size=13), gridcolor='#DCD5CE', linecolor='#A09890', linewidth=1, fixedrange=True),
+                yaxis2=dict(title=dict(text="修課人數 (人)", font=dict(color="#000000", size=14)), range=[0, 150], dtick=30, tickfont=dict(color="#000000", size=13), overlaying='y', side='right', showgrid=False, linecolor='#A09890', linewidth=1, fixedrange=True),
                 hoverlabel=dict(bgcolor="#FFFFFF", font=dict(color="#000000", size=13), bordercolor="#D4CCC5"),
-                dragmode=False # 禁用整體拖曳框選
+                dragmode=False
             )
-            # 使用 displayModeBar=False 隱藏右上角醜醜的工具列
             st.plotly_chart(fig, use_container_width=True, theme=None, config={'displayModeBar': False})
 
         with st.container(border=True):
