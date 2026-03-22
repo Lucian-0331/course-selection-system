@@ -42,7 +42,7 @@ st.markdown("""
 
     /* 按鈕樣式：法式奶油白 */
     .stButton>button, .stFormSubmitButton>button, [data-testid="stLinkButton"]>a { 
-        width: 100%; border-radius: 20px; font-weight: 800;                      
+        width: 100%; border-radius: 20px; font-weight: 800;                       
         background-color: #EFEBE8 !important; border: 1px solid #DCD5CE !important;  
         color: #333333 !important; letter-spacing: 1px; transition: all 0.3s ease; 
         box-shadow: 0 2px 5px rgba(0,0,0,0.04); height: 45px !important;
@@ -449,34 +449,29 @@ elif st.session_state.current_page == "視覺化介面":
                 c_action1, c_action2 = st.columns(2)
                 with c_action1:
                     if st.button("❤️ 加入收藏", key="vis_add_fav", use_container_width=True):
-                        matched_df = df_courses[df_courses['選課代號'].astype(str) == str(course_info['選課代號'])]
-                        if not matched_df.empty:
-                            c_data = matched_df.iloc[0]
-                            c_code = str(c_data['選課代號'])
-                            if any(c['id'] == c_code for c in st.session_state.my_courses): 
-                                st.toast(f"「{target_course_name}」已經在您的收藏清單中囉！", icon="⚠️")
-                            else:
-                                c_type_raw = str(c_data.get('必選修', '選修')).upper()
-                                c_type = '必修' if c_type_raw == 'M' else '選修' if c_type_raw == 'O' else str(c_data.get('修別', '選修'))
-                                try: credits = int(float(c_data.get('學分', c_data.get('學分數', 2))))
-                                except: credits = 2
-                                raw_time = str(c_data.get('上課時間', c_data.get('節次', ''))).replace(" ", "")
-                                time_slots = []
-                                for match in re.finditer(r'\(?([一二三四五六日])\)?([0-9A-Za-z,\-~]+)', raw_time):
-                                    day, periods_str = match.group(1), match.group(2)
-                                    for part in re.split(r'[,、]', periods_str):
-                                        if '-' in part or '~' in part:
-                                            try:
-                                                s_str, e_str = part.split('-' if '-' in part else '~')
-                                                if s_str.isdigit() and e_str.isdigit():
-                                                    for p in range(int(s_str), int(e_str) + 1): time_slots.append(f"{day}{p}")
-                                                else: time_slots.extend([f"{day}{s_str.upper()}", f"{day}{e_str.upper()}"])
-                                            except: pass 
-                                        else: time_slots.append(f"{day}{int(part)}" if part.isdigit() else f"{day}{part.upper()}")
-                                st.session_state.my_courses.append({"id": c_code, "name": target_course_name, "time": time_slots, "credits": credits, "type": c_type, "enrolled": False})
-                                st.toast(f"已將「{target_course_name}」加入您的收藏清單！", icon="✨")
+                        c_code = str(course_info['選課代號'])
+                        if any(c['id'] == c_code for c in st.session_state.my_courses): 
+                            st.toast(f"「{target_course_name}」已經在您的收藏清單中囉！", icon="⚠️")
                         else:
-                            st.toast("⚠️ 此為範例課程，無法加入收藏", icon="⚠️")
+                            c_type_raw = str(course_info.get('必選修', '選修')).upper()
+                            c_type = '必修' if c_type_raw == 'M' else '選修' if c_type_raw == 'O' else str(course_info.get('修別', '選修'))
+                            try: credits = int(float(course_info.get('學分', course_info.get('學分數', 2))))
+                            except: credits = 2
+                            raw_time = str(course_info.get('上課時間', course_info.get('節次', ''))).replace(" ", "")
+                            time_slots = []
+                            for match in re.finditer(r'\(?([一二三四五六日])\)?([0-9A-Za-z,\-~]+)', raw_time):
+                                day, periods_str = match.group(1), match.group(2)
+                                for part in re.split(r'[,、]', periods_str):
+                                    if '-' in part or '~' in part:
+                                        try:
+                                            s_str, e_str = part.split('-' if '-' in part else '~')
+                                            if s_str.isdigit() and e_str.isdigit():
+                                                for p in range(int(s_str), int(e_str) + 1): time_slots.append(f"{day}{p}")
+                                            else: time_slots.extend([f"{day}{s_str.upper()}", f"{day}{e_str.upper()}"])
+                                        except: pass 
+                                    else: time_slots.append(f"{day}{int(part)}" if part.isdigit() else f"{day}{part.upper()}")
+                            st.session_state.my_courses.append({"id": c_code, "name": target_course_name, "time": time_slots, "credits": credits, "type": c_type, "enrolled": False})
+                            st.toast(f"已將「{target_course_name}」加入您的收藏清單！", icon="✨")
                 with c_action2:
                     st.button("➕ 模擬排課", key="vis_sim_nav", use_container_width=True, on_click=navigate_to, args=("我的收藏",))
 
