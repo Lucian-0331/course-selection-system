@@ -460,6 +460,8 @@ elif st.session_state.current_page == "視覺化介面":
             line_color = '#5BC0DE' if target_course_name else '#cccccc'
             fig_radar = go.Figure()
             fig_radar.add_trace(go.Scatterpolar(r=values_closed, theta=categories + [categories[0]], fill='toself', fillcolor=fill_color, line=dict(color=line_color), marker=dict(size=1)))
+            
+            # 🌟 修復 1：鎖死雷達圖
             fig_radar.update_layout(
                 polar=dict(
                     bgcolor='rgba(0,0,0,0)', 
@@ -472,7 +474,8 @@ elif st.session_state.current_page == "視覺化介面":
                 plot_bgcolor='rgba(0,0,0,0)', 
                 margin=dict(l=30, r=30, t=20, b=20)
             )
-            st.plotly_chart(fig_radar, use_container_width=True, theme=None)
+            # 使用 staticPlot=True 完全寫死雷達圖
+            st.plotly_chart(fig_radar, use_container_width=True, theme=None, config={'staticPlot': True})
 
 elif st.session_state.current_page == "詳細課程":
     st.markdown("<h2 style='color: #333; font-weight: 800; margin-bottom: 5px;'>📖 課程詳細資訊</h2>", unsafe_allow_html=True)
@@ -513,13 +516,11 @@ elif st.session_state.current_page == "詳細課程":
             st.markdown(f"### 📌 課程完整資訊")
             st.markdown(f"<div style='background-color: #E2DCD5; padding: 6px 16px; border-radius: 8px; display: inline-block; margin-bottom: 18px; font-weight: bold; color: #222; border: 1px solid #D0C8C0;'>{selected_uid}</div>", unsafe_allow_html=True)
             
-            # 🌟 這裡換成你專屬的「白名單過濾陣列」，系統只會挑選這裡面有的印出來！
             target_cols = ['選課代號', '開課班級', '科目簡稱', '學分數', '學分', '必選修', '上課時間', 'EMI註記', '授課方式', '授課語言', '系所', '課程描述_中', '課程描述_英']
             col1, col2 = st.columns(2)
             display_index = 0
             
             for col_name in target_cols:
-                # 檢查這個欄位在不在資料庫裡，如果不在就跳過
                 if col_name not in course_data.index: continue
                 
                 val = course_data[col_name]
@@ -542,8 +543,23 @@ elif st.session_state.current_page == "詳細課程":
             fig = go.Figure()
             fig.add_trace(go.Scatter(x=trend_df.Year, y=trend_df.AvgScore, name='平均成績 (分)', line=dict(color='#C85A5A', width=4), yaxis='y1')) 
             fig.add_trace(go.Scatter(x=trend_df.Year, y=trend_df.Students, name='修課人數 (人)', line=dict(color='#4A7C59', width=4), yaxis='y2')) 
-            fig.update_layout(margin=dict(l=50, r=50, t=40, b=40), height=300, paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font=dict(color="#000000", family="sans-serif", size=13), legend=dict(orientation="h", y=1.15, font=dict(color="#000000", size=14)), xaxis=dict(tickfont=dict(color="#000000", size=13), gridcolor='#DCD5CE', linecolor='#A09890', linewidth=1), yaxis=dict(title=dict(text="平均成績 (分)", font=dict(color="#000000", size=14)), range=[0, 100], dtick=10, tickfont=dict(color="#000000", size=13), gridcolor='#DCD5CE', linecolor='#A09890', linewidth=1), yaxis2=dict(title=dict(text="修課人數 (人)", font=dict(color="#000000", size=14)), range=[0, 150], dtick=30, tickfont=dict(color="#000000", size=13), overlaying='y', side='right', showgrid=False, linecolor='#A09890', linewidth=1), hoverlabel=dict(bgcolor="#FFFFFF", font=dict(color="#000000", size=13), bordercolor="#D4CCC5"))
-            st.plotly_chart(fig, use_container_width=True, theme=None)
+            
+            # 🌟 修復 2：鎖死折線圖，但保留滑鼠懸浮文字 (Hover)
+            fig.update_layout(
+                margin=dict(l=50, r=50, t=40, b=40), 
+                height=300, 
+                paper_bgcolor='rgba(0,0,0,0)', 
+                plot_bgcolor='rgba(0,0,0,0)', 
+                font=dict(color="#000000", family="sans-serif", size=13), 
+                legend=dict(orientation="h", y=1.15, font=dict(color="#000000", size=14), itemclick=False, itemdoubleclick=False), # 禁用圖例點擊隱藏
+                xaxis=dict(tickfont=dict(color="#000000", size=13), gridcolor='#DCD5CE', linecolor='#A09890', linewidth=1, fixedrange=True), # 禁用 X 軸縮放
+                yaxis=dict(title=dict(text="平均成績 (分)", font=dict(color="#000000", size=14)), range=[0, 100], dtick=10, tickfont=dict(color="#000000", size=13), gridcolor='#DCD5CE', linecolor='#A09890', linewidth=1, fixedrange=True), # 禁用 Y 軸縮放
+                yaxis2=dict(title=dict(text="修課人數 (人)", font=dict(color="#000000", size=14)), range=[0, 150], dtick=30, tickfont=dict(color="#000000", size=13), overlaying='y', side='right', showgrid=False, linecolor='#A09890', linewidth=1, fixedrange=True), # 禁用 Y2 軸縮放
+                hoverlabel=dict(bgcolor="#FFFFFF", font=dict(color="#000000", size=13), bordercolor="#D4CCC5"),
+                dragmode=False # 禁用整體拖曳框選
+            )
+            # 使用 displayModeBar=False 隱藏右上角醜醜的工具列
+            st.plotly_chart(fig, use_container_width=True, theme=None, config={'displayModeBar': False})
 
         with st.container(border=True):
             st.markdown("### 💬 留言板")
