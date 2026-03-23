@@ -78,6 +78,23 @@ st.markdown("""
     .timetable td.filled { background-color: #DCD7D4; font-weight: 900; color: #222; border-radius: 8px; font-size: 12px !important; line-height: 1.3; }
     .timetable td.conflict { background-color: #FADBD8; color: #C0392B; font-weight: 900; border: 2px solid #E74C3C; border-radius: 8px; font-size: 11px !important; line-height: 1.2; }
     .stats-card { background-color: #F8F6F4; padding: 15px; border-radius: 15px; border: 1px solid #EAE6E3; margin-bottom: 10px; }
+
+    /* 🌟 --- 重置按鈕專屬防跑版間距 --- 🌟 */
+    .spacer-reset { margin-top: 28px; }
+
+    /* 🌟 --- 響應式設計 (RWD) 筆電防跑版終極優化 --- 🌟 */
+    @media screen and (max-width: 1400px) {
+        h2 { font-size: 1.5rem !important; }
+        h3 { font-size: 1.2rem !important; }
+        h4 { font-size: 1.05rem !important; }
+        [data-testid="stVerticalBlockBorderWrapper"] { padding: 12px !important; margin-bottom: 12px !important; }
+        .stButton>button, [data-testid="stLinkButton"]>a { font-size: 0.85rem !important; height: 38px !important; padding: 2px !important; }
+        .timetable th, .timetable td { font-size: 11px !important; padding: 2px 2px; height: 50px; }
+        .tag { font-size: 0.75rem; padding: 3px 8px; }
+        p, span, label { font-size: 0.9rem !important; }
+        .stSelectbox > div > div { min-height: 36px !important; }
+        .spacer-reset { margin-top: 5px !important; }
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -130,11 +147,9 @@ if 'saved_course' not in st.session_state: st.session_state.saved_course = "請�
 if 'target_course_id' not in st.session_state: st.session_state.target_course_id = None 
 if 'search_term' not in st.session_state: st.session_state.search_term = ""
 
-# 🎯 頭像相關記憶體
 if 'avatar' not in st.session_state: st.session_state.avatar = "https://www.w3schools.com/howto/img_avatar.png" 
 if 'show_uploader' not in st.session_state: st.session_state.show_uploader = False
 
-# 🎯 個人偏好設定記憶體
 if 'prefs' not in st.session_state:
     st.session_state.prefs = {
         "prof": {"🏭 生產與製造": False, "📈 品質管理": False, "💻 程式與資訊": False, "📊 數據分析": False, "⚙️ 系統模擬": False, "💼 科技管理": False},
@@ -188,54 +203,66 @@ if st.session_state.current_page == "系統首頁":
     total_after_this_sem = accumulated_credits + current_enrolled_credits
     needed_credits = max(128 - total_after_this_sem, 0)
     
-    st.title(f"👋 歡迎回來，{st.session_state.name.split(' ')[0]}！")
-    st.markdown("<p style='font-size: 1.1rem; margin-bottom: 15px;'>在這裡掌握您的學習進度與最新課程動態，為新學期做好完美規劃。</p>", unsafe_allow_html=True)
+    col_title, col_quote = st.columns([2.2, 1])
     
-    # 🌟 這裡插入了 Javascript 動態時鐘魔法！
-    components.html(
-        """
-        <body style="margin: 0; padding: 0; overflow: hidden; background-color: transparent;">
-            <div style="font-family: sans-serif; display: flex; align-items: center;">
-                <div style="display: inline-flex; align-items: center; background-color: #FFFFFF; border: 1px solid #EAE6E3; padding: 6px 18px; border-radius: 30px; box-shadow: 0 2px 8px rgba(160, 150, 140, 0.1);">
-                    <span style="font-size: 16px; margin-right: 8px; color: #888;">🕒</span>
-                    <span style="color: #555; font-size: 15px; font-weight: 700; letter-spacing: 0.5px;">系統時間：<span id="clock" style="color: #4A7C59; font-family: monospace; font-size: 16px;"></span></span>
+    with col_title:
+        st.title(f"👋 歡迎回來，{st.session_state.name.split(' ')[0]}！")
+        st.markdown("<p style='font-size: 1.1rem; margin-bottom: 15px;'>在這裡掌握您的學習進度與最新課程動態，為新學期做好完美規劃。</p>", unsafe_allow_html=True)
+        
+        components.html(
+            """
+            <body style="margin: 0; padding: 0; overflow: hidden; background-color: transparent;">
+                <div style="font-family: sans-serif; display: flex; align-items: center;">
+                    <div style="display: inline-flex; align-items: center; background-color: #FFFFFF; border: 1px solid #EAE6E3; padding: 6px 18px; border-radius: 30px; box-shadow: 0 2px 8px rgba(160, 150, 140, 0.1);">
+                        <span style="font-size: 16px; margin-right: 8px; color: #888;">🕒</span>
+                        <span style="color: #555; font-size: 15px; font-weight: 700; letter-spacing: 0.5px;">系統時間：<span id="clock" style="color: #4A7C59; font-family: monospace; font-size: 16px;"></span></span>
+                    </div>
                 </div>
-            </div>
-            <script>
-                function updateTime() {
-                    const now = new Date();
-                    const year = now.getFullYear();
-                    const month = String(now.getMonth() + 1).padStart(2, '0');
-                    const day = String(now.getDate()).padStart(2, '0');
-                    const hours = String(now.getHours()).padStart(2, '0');
-                    const minutes = String(now.getMinutes()).padStart(2, '0');
-                    const seconds = String(now.getSeconds()).padStart(2, '0');
-                    document.getElementById('clock').innerText = `${year}年${month}月${day}日 ${hours}:${minutes}:${seconds}`;
-                }
-                setInterval(updateTime, 1000);
-                updateTime(); // 立即觸發一次避免載入延遲
-            </script>
-        </body>
-        """,
-        height=45
-    )
+                <script>
+                    function updateTime() {
+                        const now = new Date();
+                        const year = now.getFullYear();
+                        const month = String(now.getMonth() + 1).padStart(2, '0');
+                        const day = String(now.getDate()).padStart(2, '0');
+                        const hours = String(now.getHours()).padStart(2, '0');
+                        const minutes = String(now.getMinutes()).padStart(2, '0');
+                        const seconds = String(now.getSeconds()).padStart(2, '0');
+                        document.getElementById('clock').innerText = `${year}年${month}月${day}日 ${hours}:${minutes}:${seconds}`;
+                    }
+                    setInterval(updateTime, 1000);
+                    updateTime(); 
+                </script>
+            </body>
+            """,
+            height=45
+        )
+
+    with col_quote:
+        st.markdown("<div style='margin-top: 15px;'></div>", unsafe_allow_html=True)
+        st.markdown(f"""
+        <div style="background: linear-gradient(135deg, #F8F6F4 0%, #EFEBE8 100%); padding: 15px 18px; border-radius: 18px; border: 1px solid #DCD5CE; box-shadow: 0 4px 12px rgba(160, 150, 140, 0.08); text-align: left;">
+            <div style="font-size: 11px; color: #888; font-weight: 800; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 1px;">✨ Daily Motivation</div>
+            <div style="font-size: 14px; color: #333; font-weight: 800; line-height: 1.5;">「每一門用心挑選的好課，<br>都是通往強者境界的基石。」</div>
+            <div style="font-size: 12px; color: #4A7C59; font-weight: 800; margin-top: 10px;">祝你今天學習順利！ ☕</div>
+        </div>
+        """, unsafe_allow_html=True)
 
     st.markdown("### 📊 畢業學分進度")
     col1, col2, col3 = st.columns(3)
     with col1:
         with st.container(border=True):
             st.markdown("<h4 style='color: #666;'>本學期預選學分</h4>", unsafe_allow_html=True)
-            st.markdown(f"<h2 style='font-size: 2.5rem; color: #4A7C59;'>{current_enrolled_credits} <span style='font-size: 1.2rem; color: #888;'>/ 25 學分</span></h2>", unsafe_allow_html=True)
+            st.markdown(f"<h2 style='font-size: 2.2rem; color: #4A7C59;'>{current_enrolled_credits} <span style='font-size: 1rem; color: #888;'>/ 25 學分</span></h2>", unsafe_allow_html=True)
             st.progress(min(current_enrolled_credits / 25, 1.0))
     with col2:
         with st.container(border=True):
             st.markdown("<h4 style='color: #666;'>累積畢業學分</h4>", unsafe_allow_html=True)
-            st.markdown(f"<h2 style='font-size: 2.5rem; color: #222;'>{total_after_this_sem} <span style='font-size: 1.2rem; color: #888;'>/ 128</span></h2>", unsafe_allow_html=True)
+            st.markdown(f"<h2 style='font-size: 2.2rem; color: #222;'>{total_after_this_sem} <span style='font-size: 1rem; color: #888;'>/ 128</span></h2>", unsafe_allow_html=True)
             st.progress(min(total_after_this_sem / 128, 1.0))
     with col3:
         with st.container(border=True):
             st.markdown("<h4 style='color: #666;'>距離畢業還需</h4>", unsafe_allow_html=True)
-            st.markdown(f"<h2 style='font-size: 2.5rem; color: #C85A5A;'>{needed_credits} <span style='font-size: 1.2rem; color: #888;'>學分</span></h2>", unsafe_allow_html=True)
+            st.markdown(f"<h2 style='font-size: 2.2rem; color: #C85A5A;'>{needed_credits} <span style='font-size: 1rem; color: #888;'>學分</span></h2>", unsafe_allow_html=True)
             if needed_credits > 40: st.markdown("<span style='color: #C85A5A; font-weight: 600;'>💡 建議本學期再修 2-3 門必修課</span>", unsafe_allow_html=True)
             else: st.markdown("<span style='color: #4A7C59; font-weight: 600;'>✨ 進度領先！可以多探索興趣領域</span>", unsafe_allow_html=True)
 
@@ -253,7 +280,7 @@ if st.session_state.current_page == "系統首頁":
                 st.markdown(f"#### {course['name']}")
                 st.markdown(f"👨‍🏫 {course['prof']} | 🕒 {course['time']}")
                 st.markdown(f"<span class='tag tag-match'>{course['match']} 契合度</span><span class='tag'>{course['tags'][0]}</span><span class='tag'>{course['tags'][1]}</span>", unsafe_allow_html=True)
-                st.markdown("<hr style='margin: 15px 0;'>", unsafe_allow_html=True)
+                st.markdown("<hr style='margin: 10px 0;'>", unsafe_allow_html=True)
                 st.button("查看詳情", key=f"btn_hm_{i}", use_container_width=True, on_click=navigate_to, args=("詳細課程", None, course['name']))
 
     st.markdown("<br>", unsafe_allow_html=True)
@@ -266,7 +293,7 @@ if st.session_state.current_page == "系統首頁":
             {"rank": 4, "name": "心理學導論", "dept": "通識中心", "quota": "剩餘 20 名", "color": "#4A7C59"}
         ]
         for course in hot_courses:
-            st.markdown(f"<div style='display: flex; justify-content: space-between; align-items: center; padding: 12px 15px; border-bottom: 1px solid #EAE6E3;'><div style='display: flex; align-items: center;'><div style='width: 30px; height: 30px; background-color: #F0EBE6; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-weight: bold; margin-right: 15px; color: #555;'>{course['rank']}</div><div><span style='font-size: 1.1rem; font-weight: 800; color: #222;'>{course['name']}</span><br><span style='font-size: 0.9rem; color: #777;'>{course['dept']}</span></div></div><div><span style='background-color: {course['color']}20; color: {course['color']}; padding: 5px 12px; border-radius: 20px; font-weight: 800; font-size: 0.9rem;'>⏳ {course['quota']}</span></div></div>", unsafe_allow_html=True)
+            st.markdown(f"<div style='display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; border-bottom: 1px solid #EAE6E3;'><div style='display: flex; align-items: center;'><div style='width: 28px; height: 28px; background-color: #F0EBE6; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-weight: bold; margin-right: 12px; color: #555;'>{course['rank']}</div><div><span style='font-size: 1.05rem; font-weight: 800; color: #222;'>{course['name']}</span><br><span style='font-size: 0.85rem; color: #777;'>{course['dept']}</span></div></div><div><span style='background-color: {course['color']}20; color: {course['color']}; padding: 4px 10px; border-radius: 20px; font-weight: 800; font-size: 0.85rem;'>⏳ {course['quota']}</span></div></div>", unsafe_allow_html=True)
 
 elif st.session_state.current_page == "視覺化介面":
     st.markdown("<h2 style='color: #333; font-weight: 800; margin-bottom: 20px;'>📊 視覺化分析中心</h2>", unsafe_allow_html=True)
@@ -276,7 +303,9 @@ elif st.session_state.current_page == "視覺化介面":
         search_term = st.text_input("搜尋關鍵字", key="search_term", placeholder="請輸入課程名稱或選課代號 (輸入後將優先顯示搜尋結果)...", label_visibility="collapsed")
         
         st.markdown("<div style='font-weight:bold; color:#555; margin-bottom:10px; margin-top:15px;'>📂 條件篩選面板</div>", unsafe_allow_html=True)
-        c1, c2, c3, c4, c5 = st.columns([2, 2, 2, 3, 1])
+        
+        c1, c2, c3 = st.columns(3)
+        c4, c5 = st.columns([3.5, 1])
 
         if search_term:
             with c1: st.selectbox("1. 系所：", ["(搜尋模式)"], disabled=True)
@@ -393,20 +422,53 @@ elif st.session_state.current_page == "視覺化介面":
                 st.session_state.saved_course = "請選擇..."
                 st.session_state.target_course_id = None
                 st.session_state.search_term = ""
-            st.markdown("<div style='margin-top: 28px;'></div>", unsafe_allow_html=True) 
+            st.markdown("<div style='height: 29px;'></div>", unsafe_allow_html=True) 
             st.button("🔄 重置", on_click=reset_all, use_container_width=True)
 
     with st.container(border=True):
         if not has_valid_filter:
             st.info("👈 請輸入關鍵字搜尋，或從上方依序完成選擇，系統才會載入分析資料。")
-            fig_scatter = go.Figure().update_layout(plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', height=350, margin=dict(l=20, r=20, t=20, b=20), xaxis=dict(showticklabels=False), yaxis=dict(showticklabels=False))
-            st.plotly_chart(fig_scatter, use_container_width=True, key="empty_chart")
+            fig_scatter_empty = go.Figure()
+            fig_scatter_empty.update_xaxes(title_text="課程難易度", range=[0.5, 5.5], gridcolor='#EFEFEF', showline=True, linecolor='#A09890', linewidth=1, fixedrange=True, automargin=True)
+            fig_scatter_empty.update_yaxes(title_text="滿意度", range=[0.5, 5.5], gridcolor='#EFEFEF', showline=True, linecolor='#A09890', linewidth=1, fixedrange=True, automargin=True)
+            fig_scatter_empty.update_layout(
+                plot_bgcolor='rgba(0,0,0,0)', 
+                paper_bgcolor='rgba(0,0,0,0)', 
+                font=dict(color="#333333"), 
+                height=350, 
+                margin=dict(l=40, r=20, t=20, b=40), 
+                dragmode=False
+            )
+            st.plotly_chart(fig_scatter_empty, use_container_width=True, key="empty_chart", config={'displayModeBar': False}, theme=None)
         else:
             fig_scatter = px.scatter(filtered, x="難度", y="滿意度", hover_name="課程名稱", hover_data={"難度": True, "滿意度": True, "選課代號": True}, custom_data=["選課代號", "課程名稱"])
             selected_idx = np.where(filtered["課程名稱"] == selected_course)[0].tolist() if selected_course not in ["請選擇...", "先選學期...", "查無結果..."] else None
             fig_scatter.update_traces(selectedpoints=selected_idx, marker=dict(color='#D9534F', size=13, opacity=0.8, line=dict(width=1, color='white')))
-            fig_scatter.update_layout(xaxis_title="課程難易度", yaxis_title="滿意度", xaxis=dict(range=[0.5, 5.5], gridcolor='#EFEFEF', fixedrange=True), yaxis=dict(range=[0.5, 5.5], gridcolor='#EFEFEF', fixedrange=True), plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', height=350, margin=dict(l=20, r=20, t=20, b=20), clickmode='event+select', dragmode=False)
-            st.plotly_chart(fig_scatter, use_container_width=True, on_select="rerun", selection_mode="points", config={'displayModeBar': False}, key="scatter_chart")
+            fig_scatter.update_xaxes(title_text="課程難易度", range=[0.5, 5.5], gridcolor='#EFEFEF', showline=True, linecolor='#A09890', linewidth=1, fixedrange=True, automargin=True)
+            fig_scatter.update_yaxes(title_text="滿意度", range=[0.5, 5.5], gridcolor='#EFEFEF', showline=True, linecolor='#A09890', linewidth=1, fixedrange=True, automargin=True)
+            fig_scatter.update_layout(
+                plot_bgcolor='rgba(0,0,0,0)', 
+                paper_bgcolor='rgba(0,0,0,0)', 
+                font=dict(color="#333333"), 
+                height=350, 
+                margin=dict(l=40, r=20, t=20, b=40),
+                clickmode='event+select', 
+                dragmode=False
+            )
+            st.plotly_chart(
+                fig_scatter, 
+                use_container_width=True, 
+                on_select="rerun", 
+                selection_mode="points", 
+                config={
+                    'displayModeBar': False, 
+                    'scrollZoom': False, 
+                    'doubleClick': False, 
+                    'showAxisDragHandles': False
+                }, 
+                key="scatter_chart",
+                theme=None
+            )
 
     target_course_name = selected_course if selected_course not in ["請選擇...", "先選學期...", "查無結果..."] else None
 
@@ -481,19 +543,23 @@ elif st.session_state.current_page == "視覺化介面":
             line_color = '#5BC0DE' if target_course_name else '#cccccc'
             fig_radar = go.Figure()
             fig_radar.add_trace(go.Scatterpolar(r=values_closed, theta=categories + [categories[0]], fill='toself', fillcolor=fill_color, line=dict(color=line_color), marker=dict(size=1)))
+            
+            # 🌟 移除引發 ValueError 的 fixedrange，改依賴 staticPlot 完全寫死
             fig_radar.update_layout(
                 polar=dict(
                     bgcolor='rgba(0,0,0,0)', 
-                    radialaxis=dict(range=[0, 5], showticklabels=False), 
-                    angularaxis=dict(tickfont=dict(size=12, color='#555' if target_course_name else '#aaa'))
+                    radialaxis=dict(range=[0, 5], showticklabels=False), # 拔掉 fixedrange
+                    angularaxis=dict(tickfont=dict(size=12, color='#333333'))
                 ), 
                 showlegend=False, 
                 height=300, 
                 paper_bgcolor='rgba(0,0,0,0)', 
                 plot_bgcolor='rgba(0,0,0,0)', 
-                margin=dict(l=30, r=30, t=20, b=20)
+                font=dict(color="#333333"),
+                margin=dict(l=40, r=40, t=30, b=30),
+                dragmode=False
             )
-            st.plotly_chart(fig_radar, use_container_width=True, theme=None, config={'staticPlot': True})
+            st.plotly_chart(fig_radar, use_container_width=True, theme=None, config={'displayModeBar': False, 'staticPlot': True})
 
 elif st.session_state.current_page == "詳細課程":
     st.markdown("<h2 style='color: #333; font-weight: 800; margin-bottom: 5px;'>📖 課程詳細資訊</h2>", unsafe_allow_html=True)
@@ -563,16 +629,16 @@ elif st.session_state.current_page == "詳細課程":
             fig.add_trace(go.Scatter(x=trend_df.Year, y=trend_df.Students, name='修課人數 (人)', line=dict(color='#4A7C59', width=4), yaxis='y2')) 
             
             fig.update_layout(
-                margin=dict(l=50, r=50, t=40, b=40), 
+                margin=dict(l=30, r=30, t=40, b=40), 
                 height=300, 
                 paper_bgcolor='rgba(0,0,0,0)', 
                 plot_bgcolor='rgba(0,0,0,0)', 
-                font=dict(color="#000000", family="sans-serif", size=13), 
-                legend=dict(orientation="h", y=1.15, font=dict(color="#000000", size=14), itemclick=False, itemdoubleclick=False),
-                xaxis=dict(tickfont=dict(color="#000000", size=13), gridcolor='#DCD5CE', linecolor='#A09890', linewidth=1, fixedrange=True),
-                yaxis=dict(title=dict(text="平均成績 (分)", font=dict(color="#000000", size=14)), range=[0, 100], dtick=10, tickfont=dict(color="#000000", size=13), gridcolor='#DCD5CE', linecolor='#A09890', linewidth=1, fixedrange=True),
-                yaxis2=dict(title=dict(text="修課人數 (人)", font=dict(color="#000000", size=14)), range=[0, 150], dtick=30, tickfont=dict(color="#000000", size=13), overlaying='y', side='right', showgrid=False, linecolor='#A09890', linewidth=1, fixedrange=True),
-                hoverlabel=dict(bgcolor="#FFFFFF", font=dict(color="#000000", size=13), bordercolor="#D4CCC5"),
+                font=dict(color="#333333", family="sans-serif", size=13), 
+                legend=dict(orientation="h", y=1.15, font=dict(color="#333333", size=14), itemclick=False, itemdoubleclick=False),
+                xaxis=dict(tickfont=dict(color="#333333", size=13), gridcolor='#DCD5CE', linecolor='#A09890', linewidth=1, fixedrange=True),
+                yaxis=dict(title=dict(text="平均成績 (分)", font=dict(color="#333333", size=14)), range=[0, 100], dtick=10, tickfont=dict(color="#333333", size=13), gridcolor='#DCD5CE', linecolor='#A09890', linewidth=1, fixedrange=True),
+                yaxis2=dict(title=dict(text="修課人數 (人)", font=dict(color="#333333", size=14)), range=[0, 150], dtick=30, tickfont=dict(color="#333333", size=13), overlaying='y', side='right', showgrid=False, linecolor='#A09890', linewidth=1, fixedrange=True),
+                hoverlabel=dict(bgcolor="#FFFFFF", font=dict(color="#333333", size=13), bordercolor="#D4CCC5"),
                 dragmode=False
             )
             st.plotly_chart(fig, use_container_width=True, theme=None, config={'displayModeBar': False})
