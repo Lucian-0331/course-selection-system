@@ -402,7 +402,7 @@ with st.sidebar:
                         conn.commit() 
                     
                     st.session_state.clear_signal += 1 
-                    st.success("✅ 行為紀錄與 ID 已徹底清空！")
+                    st.success("✅ 行為紀錄與 ID 已徹底清空")
                     st.rerun()
                 except Exception as e:
                     st.error(f"清空失敗: {e}")
