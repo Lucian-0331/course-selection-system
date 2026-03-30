@@ -3,6 +3,7 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 import sqlite3
+import psycopg2
 import numpy as np
 from collections import defaultdict
 import re
@@ -12,19 +13,29 @@ import streamlit.components.v1 as components
 import json
 
 # ==========================================
-# 🌟 實驗追蹤資料庫初始化
+# 🌟 雲端行為追蹤資料庫設定 (Supabase)
 # ==========================================
+# ⚠️ 注意：此處已為你換上專屬的 Supabase 連線字串 (已移除密碼括號)
+SUPABASE_URI = "postgresql://postgres:Hh125974778@db.vtcpjriwbkvkimzlrfoo.supabase.co:5432/postgres"
+
 def init_tracker_db():
-    with sqlite3.connect('courses.db', timeout=10) as conn:
-        conn.execute('''CREATE TABLE IF NOT EXISTS user_behavior_logs_v2 (
-                        id INTEGER PRIMARY KEY AUTOINCREMENT,
-                        時間 TEXT,
-                        使用者行為 TEXT,
-                        事件細節 TEXT,
-                        x REAL,
-                        y REAL,
-                        url TEXT
-                    )''')
+    try:
+        with psycopg2.connect(SUPABASE_URI) as conn:
+            with conn.cursor() as cursor:
+                cursor.execute('''CREATE TABLE IF NOT EXISTS user_behavior_logs_v2 (
+                                id SERIAL PRIMARY KEY,
+                                時間 TEXT,
+                                使用者行為 TEXT,
+                                事件細節 TEXT,
+                                x REAL,
+                                y REAL,
+                                url TEXT,
+                                使用者id TEXT
+                            )''')
+            conn.commit()
+    except Exception as e:
+        print(f"Supabase Init Error: {e}")
+        
 init_tracker_db()
 
 # ==========================================
@@ -99,7 +110,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ==========================================
-# 🌟 實驗行為追蹤資料回傳處理 (Callback)
+# 🌟 實驗行為追蹤資料回傳處理 (Callback - 連線至 Supabase)
 # ==========================================
 def process_tracker_data():
     payload = st.session_state.tracker_bridge
@@ -114,24 +125,26 @@ def process_tracker_data():
         st.session_state.last_payload_id = payload_id
         
         logs = parsed.get("data", [])
+        current_user_id = st.session_state.get("student_id", "Unknown_User")
             
         if logs:
-            with sqlite3.connect('courses.db', timeout=10) as conn:
-                cursor = conn.cursor()
-                for log in logs:
-                    cursor.execute('''INSERT INTO user_behavior_logs_v2 
-                                      (時間, 使用者行為, 事件細節, x, y, url) 
-                                      VALUES (?, ?, ?, ?, ?, ?)''', 
-                                   (log.get('time'), log.get('action_type'), log.get('action_detail'),
-                                    log.get('x'), log.get('y'), log.get('url')))
+            with psycopg2.connect(SUPABASE_URI) as conn:
+                with conn.cursor() as cursor:
+                    for log in logs:
+                        # 替換為 PostgreSQL 參數綁定格式 (%s)
+                        cursor.execute('''INSERT INTO user_behavior_logs_v2 
+                                          (時間, 使用者行為, 事件細節, x, y, url, 使用者id) 
+                                          VALUES (%s, %s, %s, %s, %s, %s, %s)''', 
+                                       (log.get('time'), log.get('action_type'), log.get('action_detail'),
+                                        log.get('x'), log.get('y'), log.get('url'), current_user_id))
                 conn.commit()
-            st.session_state.tracker_msg = f"✅ 成功寫入 {len(logs)} 筆資料！"
+            st.session_state.tracker_msg = f"✅ 成功寫入 {len(logs)} 筆資料至雲端！(標籤: {current_user_id})"
             st.session_state.tracker_bridge = "" 
     except Exception as e:
-        st.session_state.tracker_msg = f"❌ 寫入失敗: {e}"
+        st.session_state.tracker_msg = f"❌ 雲端寫入失敗: {e}"
 
 # ==========================================
-# 2. 統一資料讀取函數
+# 2. 統一資料讀取函數 (課程資料保留在本地 SQLite)
 # ==========================================
 @st.cache_data(ttl=3600)
 def load_data():
@@ -171,6 +184,11 @@ def get_fixed_trend_data(course_code):
 # ==========================================
 # 3. 初始化全局記憶體
 # ==========================================
+# 🌟 隱形標籤大法：從網址獲取 ID (例如 /?id=P01)
+if 'student_id' not in st.session_state: 
+    q_params = st.query_params
+    st.session_state.student_id = q_params.get("id", "Unknown_User")
+
 if 'current_page' not in st.session_state: st.session_state.current_page = "系統首頁"
 if 'saved_dept' not in st.session_state: st.session_state.saved_dept = "請選擇..."
 if 'saved_class' not in st.session_state: st.session_state.saved_class = "請選擇..."
@@ -228,6 +246,8 @@ with st.sidebar:
     st.markdown("<hr style='margin:15px 0;'>", unsafe_allow_html=True)
     
     with st.expander("👁️ 眼動儀實驗控制面板", expanded=True):
+        st.markdown(f"<div style='color:#2E7D32; font-weight:bold; font-size:12px; margin-bottom:8px;'>目前受測者 ID: {st.session_state.student_id}</div>", unsafe_allow_html=True)
+        
         # 🎯 物理隱藏法：確保標籤不會被拔掉，但畫面上看不見
         st.markdown('<div style="position:absolute; left:-9999px; opacity:0; width:1px; height:1px;">', unsafe_allow_html=True)
         st.text_input("TRACKER_BRIDGE", key="tracker_bridge", on_change=process_tracker_data)
@@ -393,29 +413,25 @@ with st.sidebar:
         with col_db2:
             if st.button("🗑️ 清空紀錄", use_container_width=True):
                 try:
-                    with sqlite3.connect('courses.db', timeout=10) as conn:
-                        conn.execute("DELETE FROM user_behavior_logs_v2")
-                        try:
-                            # 🌟 強制重置 ID 回到 1
-                            conn.execute("DELETE FROM sqlite_sequence WHERE name='user_behavior_logs_v2'")
-                        except: pass
-                        conn.commit() 
-                    
+                    with psycopg2.connect(SUPABASE_URI) as conn:
+                        with conn.cursor() as cursor:
+                            cursor.execute("TRUNCATE TABLE user_behavior_logs_v2 RESTART IDENTITY;")
+                        conn.commit()
                     st.session_state.clear_signal += 1 
-                    st.success("✅ 行為紀錄與 ID 已徹底清空")
+                    st.success("✅ 雲端行為紀錄已徹底清空！")
                     st.rerun()
                 except Exception as e:
                     st.error(f"清空失敗: {e}")
                     
         if st.session_state.get("show_tracker_db", False):
             try:
-                with sqlite3.connect('courses.db', timeout=10) as conn:
-                    df_logs = pd.read_sql_query("SELECT id, 時間, 使用者行為, 事件細節, x, y, url FROM user_behavior_logs_v2 ORDER BY id DESC LIMIT 50", conn)
+                with psycopg2.connect(SUPABASE_URI) as conn:
+                    df_logs = pd.read_sql_query("SELECT id, 時間, 使用者id, 使用者行為, 事件細節, x, y, url FROM user_behavior_logs_v2 ORDER BY id DESC LIMIT 50", conn)
                 if not df_logs.empty:
                     st.dataframe(df_logs, use_container_width=True, hide_index=True)
                     st.caption(f"顯示最新 {len(df_logs)} 筆資料")
                 else:
-                    st.info("目前尚無行為紀錄。")
+                    st.info("目前雲端尚無行為紀錄。")
             except Exception as e:
                 st.error(f"讀取資料表失敗: {e}")
 
