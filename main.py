@@ -15,8 +15,8 @@ import json
 # ==========================================
 # 🌟 雲端行為追蹤資料庫設定 (Supabase)
 # ==========================================
-# ⚠️ 注意：此處已為你換上專屬的 Supabase 連線字串 (已移除密碼括號)
-SUPABASE_URI = "postgresql://postgres:Hh125974778@db.vtcpjriwbkvkimzlrfoo.supabase.co:5432/postgres"
+# 🔑 終極連線字串 (已使用 Transaction Pooler 繞過 IPv6 限制)
+SUPABASE_URI = "postgresql://postgres.vtcpjriwbkvkimzlrfoo:Hh125974778@aws-1-ap-south-1.pooler.supabase.com:6543/postgres"
 
 def init_tracker_db():
     try:
