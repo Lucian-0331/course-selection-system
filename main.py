@@ -118,15 +118,22 @@ st.markdown("""
 # ==========================================
 def process_tracker_data():
     payload = st.session_state.tracker_bridge
-    if not payload: return
+    if not payload or str(payload).strip() == "": 
+        return
+        
     try:
         parsed = json.loads(payload)
-        payload_id = parsed.get("id")
+        payload_id = str(parsed.get("id"))
         
-        if "last_payload_id" in st.session_state and st.session_state.last_payload_id == payload_id:
-            st.session_state.tracker_bridge = ""
-            return
-        st.session_state.last_payload_id = payload_id
+        # 🛡️ 終極防線：使用 Set 集合記錄所有處理過的 ID，徹底斷絕重複寫入！
+        if "processed_payloads" not in st.session_state:
+            st.session_state.processed_payloads = set()
+            
+        if payload_id in st.session_state.processed_payloads:
+            st.session_state.tracker_bridge = ""  # 嘗試清空殘留值
+            return  # 這個 ID 已經寫入過了，直接擋在門外！
+            
+        st.session_state.processed_payloads.add(payload_id)
         
         logs = parsed.get("data", [])
         current_user_id = st.session_state.get("student_id", "Unknown_User")
@@ -135,7 +142,6 @@ def process_tracker_data():
             with psycopg2.connect(SUPABASE_URI) as conn:
                 with conn.cursor() as cursor:
                     for log in logs:
-                        # 替換為 PostgreSQL 參數綁定格式 (%s)
                         cursor.execute('''INSERT INTO user_behavior_logs_v2 
                                           (時間, 使用者行為, 事件細節, x, y, url, 使用者id) 
                                           VALUES (%s, %s, %s, %s, %s, %s, %s)''', 
@@ -397,7 +403,6 @@ with st.sidebar:
                     nativeSetter.call(input, dataStr);
                     input.dispatchEvent(new Event('input', {{ bubbles: true }}));
                     input.dispatchEvent(new Event('change', {{ bubbles: true }}));
-                    input.dispatchEvent(new KeyboardEvent('keydown', {{ key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true }}));
                     
                     p.__TRACKER_LOGS__ = []; 
                     updateUI();
