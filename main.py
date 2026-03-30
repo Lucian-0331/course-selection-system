@@ -15,9 +15,11 @@ import json
 # ==========================================
 # 🌟 雲端行為追蹤資料庫設定 (Supabase)
 # ==========================================
-# 🔑 終極連線字串 (已使用 Transaction Pooler 繞過 IPv6 限制)
-SUPABASE_URI = "postgresql://postgres.vtcpjriwbkvkimzlrfoo:Hh125974778@aws-1-ap-south-1.pooler.supabase.com:6543/postgres"
+# 🔑 終極連線字串 (已加入 sslmode=require 確保安全與連線穩定)
+SUPABASE_URI = "postgresql://postgres.vtcpjriwbkvkimzlrfoo:Hh125974778@aws-1-ap-south-1.pooler.supabase.com:6543/postgres?sslmode=require"
 
+# 🚀 加上快取魔法：讓這段只在剛載入時跑一次，完美解決 1~2 秒的卡頓！
+@st.cache_resource
 def init_tracker_db():
     try:
         with psycopg2.connect(SUPABASE_URI) as conn:
@@ -33,8 +35,10 @@ def init_tracker_db():
                                 使用者id TEXT
                             )''')
             conn.commit()
+        return True
     except Exception as e:
         print(f"Supabase Init Error: {e}")
+        return False
         
 init_tracker_db()
 
@@ -423,10 +427,16 @@ with st.sidebar:
                 except Exception as e:
                     st.error(f"清空失敗: {e}")
                     
+        # 🌟 讀取機制升級：不再依賴 pandas 導致靜默錯誤，改用原生 SQL 強制抓出資料！
         if st.session_state.get("show_tracker_db", False):
             try:
                 with psycopg2.connect(SUPABASE_URI) as conn:
-                    df_logs = pd.read_sql_query("SELECT id, 時間, 使用者id, 使用者行為, 事件細節, x, y, url FROM user_behavior_logs_v2 ORDER BY id DESC LIMIT 50", conn)
+                    with conn.cursor() as cursor:
+                        cursor.execute("SELECT id, 時間, 使用者id, 使用者行為, 事件細節, x, y, url FROM user_behavior_logs_v2 ORDER BY id DESC LIMIT 50")
+                        rows = cursor.fetchall()
+                        cols = [desc[0] for desc in cursor.description]
+                        df_logs = pd.DataFrame(rows, columns=cols)
+                        
                 if not df_logs.empty:
                     st.dataframe(df_logs, use_container_width=True, hide_index=True)
                     st.caption(f"顯示最新 {len(df_logs)} 筆資料")
