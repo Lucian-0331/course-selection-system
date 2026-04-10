@@ -13,22 +13,26 @@ import streamlit.components.v1 as components
 import json
 
 # ==========================================
-# 🌟 雲端行為追蹤資料庫設定 (Supabase)
+# 🌟 雲端行為追蹤資料庫設定 (Supabase V4)
 # ==========================================
-# 🔑 終極連線字串 (已加入 sslmode=require 確保安全與連線穩定)
 SUPABASE_URI = "postgresql://postgres.vtcpjriwbkvkimzlrfoo:Hh125974778@aws-1-ap-south-1.pooler.supabase.com:6543/postgres?sslmode=require"
 
-# 🚀 加上快取魔法：讓這段只在剛載入時跑一次，完美解決 1~2 秒的卡頓！
 @st.cache_resource
 def init_tracker_db():
     try:
         with psycopg2.connect(SUPABASE_URI) as conn:
             with conn.cursor() as cursor:
-                cursor.execute('''CREATE TABLE IF NOT EXISTS user_behavior_logs_v2 (
+                cursor.execute('''CREATE TABLE IF NOT EXISTS user_behavior_logs_v4 (
                                 id SERIAL PRIMARY KEY,
                                 時間 TEXT,
-                                使用者行為 TEXT,
-                                事件細節 TEXT,
+                                timestamp_ms BIGINT,
+                                scroll_y REAL,
+                                viewport_w INT,
+                                viewport_h INT,
+                                pixel_ratio REAL,
+                                current_section TEXT,
+                                action_type TEXT,
+                                action_detail TEXT,
                                 x REAL,
                                 y REAL,
                                 url TEXT,
@@ -55,7 +59,6 @@ st.markdown("""
     [data-testid="stSidebar"] { background-color: #F8F6F1; border-right: 1px solid #D4CCC5; }
     header { background-color: transparent !important; }
     
-    /* 卡片與容器樣式 */
     [data-testid="stVerticalBlockBorderWrapper"] {
         background-color: #FFFFFF; border-radius: 20px; border: none;
         box-shadow: 0px 4px 15px rgba(0,0,0,0.05); padding: 20px; margin-bottom: 20px;
@@ -68,13 +71,11 @@ st.markdown("""
     h1, h2, h3, h4 { color: #333333 !important; font-weight: 800 !important; font-family: 'sans-serif'; }
     p, span, label { color: #555555 !important; font-family: 'sans-serif'; }
     
-    /* 輸入框與下拉選單 */
     .stTextInput input, .stTextArea textarea, .stSelectbox > div > div { 
         background-color: #F8F6F4 !important; color: #333333 !important; 
         border-radius: 10px !important; border: 1px solid #EAE6E3 !important; 
     }
 
-    /* 按鈕樣式：法式奶油白 */
     .stButton>button, .stFormSubmitButton>button, [data-testid="stLinkButton"]>a { 
         width: 100%; border-radius: 20px; font-weight: 800;                        
         background-color: #EFEBE8 !important; border: 1px solid #DCD5CE !important;  
@@ -88,7 +89,6 @@ st.markdown("""
         transform: translateY(-2px);
     }
     
-    /* 側邊欄按鈕微調 */
     [data-testid="stSidebar"] .stButton>button {
         background-color: transparent !important; border: none !important; box-shadow: none !important;
         text-align: left; justify-content: flex-start; font-size: 1.1rem; height: auto !important; margin-bottom: 5px;
@@ -97,12 +97,10 @@ st.markdown("""
 
     .stProgress > div > div > div > div { background-color: #A3968C; }
 
-    /* 首頁推薦標籤 (Tag) 樣式 */
     .tag { display: inline-block; background-color: #F0EBE6; color: #555555; padding: 4px 10px; border-radius: 8px; font-size: 0.85rem; font-weight: 600; margin-right: 8px; margin-top: 8px; }
     .tag-match { background-color: #4A7C59; color: white; }
     .tag-hot { background-color: #C85A5A; color: white; }
 
-    /* --- 課表專用 CSS --- */
     .timetable { width: 100%; border-collapse: collapse; text-align: center; font-family: sans-serif; font-size: 14px; table-layout: fixed; }
     .timetable th, .timetable td { border: 2px solid #EAE6E3; padding: 6px 4px; width: 16%; height: 75px; vertical-align: middle; word-wrap: break-word; overflow: hidden; }
     .timetable th { background-color: #F8F6F4; font-weight: 800; color: #555; border-radius: 5px; height: auto; padding: 10px 5px;}
@@ -114,7 +112,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ==========================================
-# 🌟 實驗行為追蹤資料回傳處理 (Callback - 連線至 Supabase)
+# 🌟 實驗行為追蹤資料回傳處理
 # ==========================================
 def process_tracker_data():
     payload = st.session_state.tracker_bridge
@@ -125,13 +123,12 @@ def process_tracker_data():
         parsed = json.loads(payload)
         payload_id = str(parsed.get("id"))
         
-        # 🛡️ 終極防線：使用 Set 集合記錄所有處理過的 ID，徹底斷絕重複寫入！
         if "processed_payloads" not in st.session_state:
             st.session_state.processed_payloads = set()
             
         if payload_id in st.session_state.processed_payloads:
-            st.session_state.tracker_bridge = ""  # 嘗試清空殘留值
-            return  # 這個 ID 已經寫入過了，直接擋在門外！
+            st.session_state.tracker_bridge = "" 
+            return 
             
         st.session_state.processed_payloads.add(payload_id)
         
@@ -142,19 +139,22 @@ def process_tracker_data():
             with psycopg2.connect(SUPABASE_URI) as conn:
                 with conn.cursor() as cursor:
                     for log in logs:
-                        cursor.execute('''INSERT INTO user_behavior_logs_v2 
-                                          (時間, 使用者行為, 事件細節, x, y, url, 使用者id) 
-                                          VALUES (%s, %s, %s, %s, %s, %s, %s)''', 
-                                       (log.get('time'), log.get('action_type'), log.get('action_detail'),
+                        cursor.execute('''INSERT INTO user_behavior_logs_v4 
+                                          (時間, timestamp_ms, scroll_y, viewport_w, viewport_h, pixel_ratio, 
+                                           current_section, action_type, action_detail, x, y, url, 使用者id) 
+                                          VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)''', 
+                                       (log.get('time'), log.get('timestamp_ms'), log.get('scroll_y'), 
+                                        log.get('viewport_w'), log.get('viewport_h'), log.get('pixel_ratio'), 
+                                        log.get('current_section'), log.get('action_type'), log.get('action_detail'),
                                         log.get('x'), log.get('y'), log.get('url'), current_user_id))
                 conn.commit()
-            st.session_state.tracker_msg = f"✅ 成功寫入 {len(logs)} 筆資料至雲端！(標籤: {current_user_id})"
+            st.session_state.tracker_msg = f"✅ 成功批次寫入 {len(logs)} 筆資料至雲端！(標籤: {current_user_id})"
             st.session_state.tracker_bridge = "" 
     except Exception as e:
         st.session_state.tracker_msg = f"❌ 雲端寫入失敗: {e}"
 
 # ==========================================
-# 2. 統一資料讀取函數 (課程資料保留在本地 SQLite)
+# 2. 統一資料讀取函數
 # ==========================================
 @st.cache_data(ttl=3600)
 def load_data():
@@ -194,7 +194,6 @@ def get_fixed_trend_data(course_code):
 # ==========================================
 # 3. 初始化全局記憶體
 # ==========================================
-# 🌟 隱形標籤大法：從網址獲取 ID (例如 /?id=P01)
 if 'student_id' not in st.session_state: 
     q_params = st.query_params
     st.session_state.student_id = q_params.get("id", "Unknown_User")
@@ -209,7 +208,6 @@ if 'search_term' not in st.session_state: st.session_state.search_term = ""
 
 if 'avatar' not in st.session_state: st.session_state.avatar = "https://www.w3schools.com/howto/img_avatar.png" 
 if 'show_uploader' not in st.session_state: st.session_state.show_uploader = False
-
 if 'last_chart_clicked_course' not in st.session_state: st.session_state.last_chart_clicked_course = None
 if 'clear_signal' not in st.session_state: st.session_state.clear_signal = 0
 
@@ -258,7 +256,6 @@ with st.sidebar:
     with st.expander("👁️ 眼動儀實驗控制面板", expanded=True):
         st.markdown(f"<div style='color:#2E7D32; font-weight:bold; font-size:12px; margin-bottom:8px;'>目前受測者 ID: {st.session_state.student_id}</div>", unsafe_allow_html=True)
         
-        # 🎯 物理隱藏法：確保標籤不會被拔掉，但畫面上看不見
         st.markdown('<div style="position:absolute; left:-9999px; opacity:0; width:1px; height:1px;">', unsafe_allow_html=True)
         st.text_input("TRACKER_BRIDGE", key="tracker_bridge", on_change=process_tracker_data)
         st.markdown('</div>', unsafe_allow_html=True)
@@ -268,48 +265,136 @@ with st.sidebar:
             
         tracker_html = f"""
         <div style="font-family: sans-serif; display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px;">
-            <button id="btn-start" style="padding:10px; background:#E8F5E9; color:#2E7D32; border:1px solid #C8E6C9; border-radius:8px; font-weight:bold; cursor:pointer;">▶️ 開啟行為追蹤 (目前: 關閉)</button>
-            <button id="btn-stop" style="display:none; padding:10px; background:#FFEBEE; color:#C62828; border:1px solid #FFCDD2; border-radius:8px; font-weight:bold; cursor:pointer;">⏸️ 暫停行為追蹤 (目前: 追蹤中)</button>
-            <button id="btn-save" style="padding:10px; background:#E3F2FD; color:#1565C0; border:1px solid #BBDEFB; border-radius:8px; font-weight:bold; cursor:pointer;">💾 寫入資料庫 (待存: 0 筆)</button>
+            <button id="btn-start" style="padding:10px; background:#E8F5E9; color:#2E7D32; border:1px solid #C8E6C9; border-radius:8px; font-weight:bold; cursor:pointer;">▶️ 開啟行為追蹤 (1Hz 心跳)</button>
+            <button id="btn-stop" style="display:none; padding:10px; background:#FFEBEE; color:#C62828; border:1px solid #FFCDD2; border-radius:8px; font-weight:bold; cursor:pointer;">⏸️ 暫停並強制上傳</button>
+            <button id="btn-save" style="padding:10px; background:#E3F2FD; color:#1565C0; border:1px solid #BBDEFB; border-radius:8px; font-weight:bold; cursor:pointer;">💾 手動強制寫入</button>
+            <div id="status-light" style="font-size:12px; font-weight:bold; color:#777; text-align:center;">本地暫存: 0 筆等待發送</div>
         </div>
         <script>
             const p = window.parent;
             const d = p.document;
+            const LOCAL_KEY = 'tracker_v4_backup';
             
-            // 狀態初始化
-            p.__TRACKER_LOGS__ = p.__TRACKER_LOGS__ || [];
             if(typeof p.__IS_TRACKING__ === 'undefined') p.__IS_TRACKING__ = false;
             
-            // 接收 Python 清空信號
             const backSignal = "{st.session_state.clear_signal}";
             if (p.__CLEAR_SIG__ !== backSignal) {{
-                p.__TRACKER_LOGS__ = [];
+                localStorage.removeItem(LOCAL_KEY);
                 p.__CLEAR_SIG__ = backSignal;
             }}
             
-            // 記錄函數
+            // 🌟 終極語意標籤偵測引擎：頁面識別 + 由下而上 (Bottom-Up) 判定邏輯
+            function getCurrentSection(vH) {{
+                // 1. 先抓取 Python 埋入的頁面身分證
+                const pageFlag = d.getElementById('current-page-flag');
+                const pageName = pageFlag ? pageFlag.getAttribute('data-page') : '未知頁面';
+
+                if (pageName === '系統首頁') return '首頁導覽';
+                if (pageName === '我的收藏') return '排課與收藏區';
+                if (pageName === '個人設定') return '個人設定區';
+
+                // 判斷元素是否出現在畫面的輔助函數 (只要頂端進入畫面底部，且尚未完全滾出畫面)
+                const isVisible = (id) => {{
+                    const el = d.getElementById(id);
+                    if (!el) return false;
+                    const rect = el.getBoundingClientRect();
+                    return (rect.top < vH * 0.8 && rect.top > -600); 
+                }};
+
+                // 2. 依照不同頁面，進行「由下而上」的判定
+                if (pageName === '視覺化介面') {{
+                    if (isVisible('zone-v-radar')) return '雷達圖與綜合資訊區';
+                    if (isVisible('zone-v-scatter')) return '散點圖選課區';
+                    if (isVisible('zone-v-filter')) return '條件篩選面板';
+                    return '視覺化介面_瀏覽中';
+                }}
+
+                if (pageName === '詳細課程') {{
+                    if (isVisible('zone-d-comment')) return '留言與討論區';
+                    if (isVisible('zone-d-trend')) return '歷年修課趨勢(折線圖)';
+                    if (isVisible('zone-d-info')) return '課程文字詳細資訊';
+                    return '詳細課程_瀏覽中';
+                }}
+
+                return pageName + '_瀏覽中';
+            }}
+            
             p.__ADD_LOG__ = function(type, detail, x_pos = null, y_pos = null) {{
                 if(!p.__IS_TRACKING__) return;
+                
                 const now = new Date();
+                const ms = Date.now();
                 const pad = (n, w=2) => String(n).padStart(w, '0');
                 const timeStr = now.getFullYear() + '-' + pad(now.getMonth()+1) + '-' + pad(now.getDate()) + ' ' + 
                                 pad(now.getHours()) + ':' + pad(now.getMinutes()) + ':' + pad(now.getSeconds()) + 
                                 '.' + pad(now.getMilliseconds(), 3);
                 
-                p.__TRACKER_LOGS__.push({{
-                    time: timeStr, action_type: type, action_detail: detail, x: x_pos, y: y_pos, url: p.location.href
-                }});
+                const scrollY = d.documentElement.scrollTop || d.body.scrollTop || 0;
+                const vW = p.innerWidth;
+                const vH = p.innerHeight;
+                const dpr = p.devicePixelRatio || 1;
                 
-                if (p.__TRACKER_LOGS__.length > 100000) p.__TRACKER_LOGS__.shift();
+                // 動態取得目前精確區塊
+                const section = getCurrentSection(vH);
+
+                const logEntry = {{
+                    time: timeStr, timestamp_ms: ms, scroll_y: scrollY, 
+                    viewport_w: vW, viewport_h: vH, pixel_ratio: dpr, 
+                    current_section: section, action_type: type, 
+                    action_detail: detail, x: x_pos, y: y_pos, url: p.location.href
+                }};
+                
+                let backup = JSON.parse(localStorage.getItem(LOCAL_KEY) || '[]');
+                backup.push(logEntry);
+                localStorage.setItem(LOCAL_KEY, JSON.stringify(backup));
+                updateUI();
             }};
             
-            // 🔥 終極防禦：拔除舊的殭屍監聽器！
+            if (p.__HEARTBEAT__) clearInterval(p.__HEARTBEAT__);
+            p.__HEARTBEAT__ = setInterval(() => {{
+                if(p.__IS_TRACKING__) p.__ADD_LOG__('heartbeat', '系統定期快照', null, null);
+            }}, 1000);
+            
+            p.__SEND_BATCH__ = function() {{
+                let backup = JSON.parse(localStorage.getItem(LOCAL_KEY) || '[]');
+                if(backup.length === 0) return;
+                
+                try {{
+                    const input = d.querySelector('input[aria-label="TRACKER_BRIDGE"]');
+                    if(input) {{
+                        const dataStr = JSON.stringify({{id: Date.now(), data: backup}});
+                        const nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+                        input.focus();
+                        nativeSetter.call(input, dataStr);
+                        input.dispatchEvent(new Event('input', {{ bubbles: true }}));
+                        input.dispatchEvent(new Event('change', {{ bubbles: true }}));
+                        
+                        localStorage.removeItem(LOCAL_KEY);
+                        updateUI();
+                    }}
+                }} catch(e) {{ console.error("發送失敗，保留於本地備份", e); }}
+            }};
+            
+            if (p.__BATCH_TIMER__) clearInterval(p.__BATCH_TIMER__);
+            p.__BATCH_TIMER__ = setInterval(() => {{
+                if(p.__IS_TRACKING__) p.__SEND_BATCH__();
+            }}, 30000);
+            
+            if (!p.__BEFORE_UNLOAD_LST__) {{
+                window.addEventListener('beforeunload', function(e) {{
+                    if(p.__IS_TRACKING__) {{
+                        p.__IS_TRACKING__ = false;
+                        p.__SEND_BATCH__(); 
+                    }}
+                }});
+                p.__BEFORE_UNLOAD_LST__ = true;
+            }}
+
             if (p.__CLICK_LST__) d.removeEventListener('click', p.__CLICK_LST__, true);
             if (p.__WHEEL_LST__) d.removeEventListener('wheel', p.__WHEEL_LST__, true);
             if (p.__INPUT_LST__) d.removeEventListener('input', p.__INPUT_LST__, true);
             if (p.__VIS_LST__) d.removeEventListener('visibilitychange', p.__VIS_LST__, true);
             
-            // 🌟 新增：分頁離開與返回的監聽器
             p.__VIS_LST__ = function() {{
                 if (d.visibilityState === 'hidden') {{
                     p.__ADD_LOG__('page_leave', '使用者離開介面 (切換分頁或隱藏視窗)', null, null);
@@ -318,7 +403,6 @@ with st.sidebar:
                 }}
             }};
             
-            // 定義新鮮的監聽器
             p.__CLICK_LST__ = function(e) {{
                 let tagName = e.target.tagName ? e.target.tagName.toUpperCase() : 'UNKNOWN';
                 let text = e.target.innerText || e.target.value || e.target.getAttribute('aria-label') || '';
@@ -347,16 +431,15 @@ with st.sidebar:
                 if(cleanVal) p.__ADD_LOG__('input', '[' + e.target.tagName + '] 輸入: ' + cleanVal, null, null); 
             }};
             
-            // 綁定新鮮的監聽器
             d.addEventListener('visibilitychange', p.__VIS_LST__, true);
             d.addEventListener('click', p.__CLICK_LST__, true);
             d.addEventListener('wheel', p.__WHEEL_LST__, true);
             d.addEventListener('input', p.__INPUT_LST__, true);
             
-            // UI 控制
             const btnStart = document.getElementById('btn-start');
             const btnStop = document.getElementById('btn-stop');
             const btnSave = document.getElementById('btn-save');
+            const statusLight = document.getElementById('status-light');
             
             function updateUI() {{
                 if(p.__IS_TRACKING__) {{
@@ -366,54 +449,48 @@ with st.sidebar:
                     btnStart.style.display = 'block';
                     btnStop.style.display = 'none';
                 }}
-                const count = p.__TRACKER_LOGS__ ? p.__TRACKER_LOGS__.length : 0;
-                btnSave.innerText = `💾 寫入資料庫 (待存: ${{count}} 筆)`;
+                
+                let backup = JSON.parse(localStorage.getItem(LOCAL_KEY) || '[]');
+                const count = backup.length;
+                statusLight.innerText = `本地暫存: ${{count}} 筆等待發送 (每30秒自動同步)`;
+                statusLight.style.color = count > 50 ? '#D32F2F' : (count > 0 ? '#F57C00' : '#388E3C');
             }}
             
             updateUI();
             if(window.__UI_TIMER__) clearInterval(window.__UI_TIMER__);
             window.__UI_TIMER__ = setInterval(updateUI, 1000); 
             
-            btnStart.onclick = () => {{ p.__IS_TRACKING__ = true; updateUI(); }};
-            
-            // 🌟 自動存檔優化：按下暫停時，自動觸發儲存機制
-            btnStop.onclick = () => {{ 
-                p.__IS_TRACKING__ = false; 
+            btnStart.onclick = () => {{ 
+                p.__IS_TRACKING__ = true; 
+                p.__ADD_LOG__('experiment_start', '打板點擊：開始實驗', null, null);
                 updateUI(); 
-                if (p.__TRACKER_LOGS__ && p.__TRACKER_LOGS__.length > 0) {{
-                    btnSave.click(); // 模擬點擊存檔按鈕
+            }};
+            
+          btnStop.onclick = () => {{ 
+                // 1. 在關機前，先強制記錄一個「結束實驗」的動作
+                if(p.__IS_TRACKING__) {{
+                    p.__ADD_LOG__('experiment_end', '打板點擊：結束實驗', null, null);
                 }}
+                
+                // 2. 記錄完遺言後，才正式關閉追蹤
+                p.__IS_TRACKING__ = false; 
+                
+                // 3. 把最後一包資料送出去
+                p.__SEND_BATCH__();
+                updateUI(); 
             }};
             
             btnSave.onclick = () => {{
-                if(!p.__TRACKER_LOGS__ || p.__TRACKER_LOGS__.length === 0) {{ 
-                    alert('目前沒有新行為紀錄可寫入！請確認有開啟追蹤並進行操作。'); 
-                    return; 
-                }}
-                
-                try {{
-                    // 利用隱藏但保有 aria-label 的 input 進行通訊
-                    const input = d.querySelector('input[aria-label="TRACKER_BRIDGE"]');
-                    if(!input) throw new Error("找不到通訊橋樑");
-                    
-                    const dataStr = JSON.stringify({{id: Date.now(), data: p.__TRACKER_LOGS__}});
-                    const nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
-                    
-                    input.focus();
-                    nativeSetter.call(input, dataStr);
-                    input.dispatchEvent(new Event('input', {{ bubbles: true }}));
-                    input.dispatchEvent(new Event('change', {{ bubbles: true }}));
-                    
-                    p.__TRACKER_LOGS__ = []; 
-                    updateUI();
-                }} catch(error) {{
-                    alert("寫入遭受阻擋: " + error.message);
-                    console.error(error);
-                }}
+                p.__SEND_BATCH__();
+                setTimeout(() => {{
+                    if(JSON.parse(localStorage.getItem(LOCAL_KEY) || '[]').length === 0) {{
+                        alert('✅ 所有本地暫存資料已成功發送至雲端！');
+                    }}
+                }}, 500);
             }};
         </script>
         """
-        components.html(tracker_html, height=140)
+        components.html(tracker_html, height=155)
         
         col_db1, col_db2 = st.columns(2)
         with col_db1:
@@ -424,20 +501,19 @@ with st.sidebar:
                 try:
                     with psycopg2.connect(SUPABASE_URI) as conn:
                         with conn.cursor() as cursor:
-                            cursor.execute("TRUNCATE TABLE user_behavior_logs_v2 RESTART IDENTITY;")
+                            cursor.execute("TRUNCATE TABLE user_behavior_logs_v4 RESTART IDENTITY;")
                         conn.commit()
                     st.session_state.clear_signal += 1 
-                    st.success("✅ 雲端行為紀錄已徹底清空！")
+                    st.success("✅ 雲端與本地行為紀錄已徹底清空！")
                     st.rerun()
                 except Exception as e:
                     st.error(f"清空失敗: {e}")
                     
-        # 🌟 讀取機制升級：不再依賴 pandas 導致靜默錯誤，改用原生 SQL 強制抓出資料！
         if st.session_state.get("show_tracker_db", False):
             try:
                 with psycopg2.connect(SUPABASE_URI) as conn:
                     with conn.cursor() as cursor:
-                        cursor.execute("SELECT id, 時間, 使用者id, 使用者行為, 事件細節, x, y, url FROM user_behavior_logs_v2 ORDER BY id DESC LIMIT 50")
+                        cursor.execute("SELECT id, 時間, timestamp_ms, current_section, scroll_y, action_type, 事件細節, x, y FROM user_behavior_logs_v4 ORDER BY id DESC LIMIT 50")
                         rows = cursor.fetchall()
                         cols = [desc[0] for desc in cursor.description]
                         df_logs = pd.DataFrame(rows, columns=cols)
@@ -453,8 +529,10 @@ with st.sidebar:
     st.button("🚪 登出系統", use_container_width=True)
 
 # ==========================================
-# 5. 路由系統
+# 5. 路由系統 (注入頁面身分證)
 # ==========================================
+# 🎯 【頁面身分證】：讓 JS 知道現在在哪個畫面
+st.markdown(f"<div id='current-page-flag' data-page='{st.session_state.current_page}' style='display:none;'></div>", unsafe_allow_html=True)
 
 if st.session_state.current_page == "系統首頁":
     current_enrolled_credits = sum(c['credits'] for c in st.session_state.my_courses if c.get('enrolled', False))
@@ -544,6 +622,8 @@ if st.session_state.current_page == "系統首頁":
 elif st.session_state.current_page == "視覺化介面":
     st.markdown("<h2 style='color: #333; font-weight: 800; margin-bottom: 20px;'>📊 視覺化分析中心</h2>", unsafe_allow_html=True)
 
+    # 🎯 【隱形錨點：條件篩選】
+    st.markdown("<div id='zone-v-filter' style='position:absolute; top:-30px; left:0; width:1px; height:1px;'></div>", unsafe_allow_html=True)
     with st.container(border=True):
         st.markdown("<div style='font-weight:bold; color:#555; margin-bottom:10px;'>🔍 全站課程搜尋</div>", unsafe_allow_html=True)
         search_term = st.text_input("搜尋關鍵字", key="search_term", placeholder="請輸入課程名稱或選課代號 (輸入後將優先顯示搜尋結果)...", label_visibility="collapsed")
@@ -567,7 +647,6 @@ elif st.session_state.current_page == "視覺化介面":
                         clicked_course_id = curr_sel["points"][0]["customdata"][0]
                         clicked_course = curr_sel["points"][0]["customdata"][1]
                         
-                        # 🌟 透過 JS 將散點圖點擊事件推入前端追蹤佇列，等待按鈕儲存
                         if st.session_state.get("last_chart_clicked_course") != clicked_course:
                             st.session_state.last_chart_clicked_course = clicked_course
                             js_code = f"""
@@ -654,7 +733,6 @@ elif st.session_state.current_page == "視覺化介面":
                         clicked_course_id = curr_sel["points"][0]["customdata"][0]
                         clicked_course = curr_sel["points"][0]["customdata"][1]
                         
-                        # 🌟 透過 JS 將散點圖點擊事件推入前端追蹤佇列，等待按鈕儲存
                         if st.session_state.get("last_chart_clicked_course") != clicked_course:
                             st.session_state.last_chart_clicked_course = clicked_course
                             js_code = f"""
@@ -706,6 +784,8 @@ elif st.session_state.current_page == "視覺化介面":
             st.markdown("<div style='margin-top: 28px;'></div>", unsafe_allow_html=True) 
             st.button("🔄 重置", on_click=reset_all, use_container_width=True)
 
+    # 🎯 【隱形錨點：散點圖】
+    st.markdown("<div id='zone-v-scatter' style='position:absolute; top:-30px; left:0; width:1px; height:1px;'></div>", unsafe_allow_html=True)
     with st.container(border=True):
         if not has_valid_filter:
             st.info("👈 請輸入關鍵字搜尋，或從上方依序完成選擇，系統才會載入分析資料。")
@@ -720,6 +800,8 @@ elif st.session_state.current_page == "視覺化介面":
 
     target_course_name = selected_course if selected_course not in ["請選擇...", "先選學期...", "查無結果..."] else None
 
+    # 🎯 【隱形錨點：雷達圖與資訊區】
+    st.markdown("<div id='zone-v-radar' style='position:absolute; top:-30px; left:0; width:1px; height:1px;'></div>", unsafe_allow_html=True)
     with st.container(border=True):
         col_left, col_right = st.columns([1.2, 1])
         with col_left:
@@ -840,6 +922,8 @@ elif st.session_state.current_page == "詳細課程":
         if current_code not in st.session_state.comments_db: st.session_state.comments_db[current_code] = []
         current_comments = st.session_state.comments_db[current_code]
 
+        # 🎯 【隱形錨點：詳細文字資訊】
+        st.markdown("<div id='zone-d-info' style='position:absolute; top:-30px; left:0; width:1px; height:1px;'></div>", unsafe_allow_html=True)
         with st.container(border=True):
             st.markdown(f"### 📌 課程完整資訊")
             st.markdown(f"<div style='background-color: #E2DCD5; padding: 6px 16px; border-radius: 8px; display: inline-block; margin-bottom: 18px; font-weight: bold; color: #222; border: 1px solid #D0C8C0;'>{selected_uid}</div>", unsafe_allow_html=True)
@@ -865,6 +949,8 @@ elif st.session_state.current_page == "詳細課程":
                         with col2: st.markdown(content, unsafe_allow_html=True)
                     display_index += 1
 
+        # 🎯 【隱形錨點：歷年趨勢】
+        st.markdown("<div id='zone-d-trend' style='position:absolute; top:-30px; left:0; width:1px; height:1px;'></div>", unsafe_allow_html=True)
         with st.container(border=True):
             st.markdown("### 📈 歷年修課趨勢")
             trend_df = get_fixed_trend_data(current_code)
@@ -887,6 +973,8 @@ elif st.session_state.current_page == "詳細課程":
             )
             st.plotly_chart(fig, use_container_width=True, theme=None, config={'displayModeBar': False})
 
+        # 🎯 【隱形錨點：留言板】
+        st.markdown("<div id='zone-d-comment' style='position:absolute; top:-30px; left:0; width:1px; height:1px;'></div>", unsafe_allow_html=True)
         with st.container(border=True):
             st.markdown("### 💬 留言板")
             if not current_comments: st.info("目前還沒有留言，來搶頭香吧！")
