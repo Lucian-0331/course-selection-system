@@ -1516,7 +1516,7 @@ elif st.session_state.current_page == "我的收藏":
             
             st.markdown(table_html, unsafe_allow_html=True)
 elif st.session_state.current_page == "個人設定":
-    st.markdown("<h2 style='margin-bottom: 20px; color: #333; font-weight: 800;'>👤 個人設定與偏好</h2>", unsafe_allow_html=True)
+    st.markdown("<h2 style='margin-bottom: 20px; color: #333; font-weight: 800;'>👤 個人設定</h2>", unsafe_allow_html=True)
 
     def reset_all_prefs():
         for k in st.session_state.prefs["prof"]: st.session_state.prefs["prof"][k] = False
