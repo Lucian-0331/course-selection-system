@@ -1619,4 +1619,4 @@ elif st.session_state.current_page == "個人設定":
     with col_save1:
         if st.button("💾 儲存所有設定", use_container_width=True): st.success("✅ 設定已存檔！")
     with col_save2:
-        if st.button("🔄 重置偏好2", on_click=reset_all_prefs, use_container_width=True): st.warning("⚠️ 已重置預設興趣與課程偏好")
+        if st.button("🔄 重置偏好", on_click=reset_all_prefs, use_container_width=True): st.warning("⚠️ 已重置預設興趣與課程偏好")
