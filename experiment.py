@@ -212,7 +212,8 @@ if 'student_id' not in st.session_state:
     q_params = st.query_params
     st.session_state.student_id = q_params.get("id", "Unknown_User")
 
-if 'current_page' not in st.session_state: st.session_state.current_page = "系統首頁"
+# ✨ 修改：將預設首頁改為「視覺化介面」
+if 'current_page' not in st.session_state: st.session_state.current_page = "視覺化介面"
 if 'saved_dept' not in st.session_state: st.session_state.saved_dept = "請選擇..."
 if 'saved_class' not in st.session_state: st.session_state.saved_class = "請選擇..."
 if 'saved_semester' not in st.session_state: st.session_state.saved_semester = "請選擇..."
@@ -260,10 +261,11 @@ with st.sidebar:
     </div>
     """, unsafe_allow_html=True)
     
-    if st.button("🏠 系統首頁", use_container_width=True): navigate_to("系統首頁")
+    # ✨ 修改：加入 disabled=True 封印不必要的頁面，引導受測者注意力
+    if st.button("🏠 系統首頁", use_container_width=True, disabled=True): navigate_to("系統首頁")
     if st.button("📊 視覺化介面", use_container_width=True): navigate_to("視覺化介面")
     if st.button("❤️ 我的收藏", use_container_width=True): navigate_to("我的收藏")
-    if st.button("⚙️ 個人設定", use_container_width=True): navigate_to("個人設定")
+    if st.button("⚙️ 個人設定", use_container_width=True, disabled=True): navigate_to("個人設定")
     
     st.markdown("<hr style='margin:15px 0;'>", unsafe_allow_html=True)
     
