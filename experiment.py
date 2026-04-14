@@ -59,6 +59,21 @@ st.markdown("""
     [data-testid="stSidebar"] { background-color: #F8F6F1; border-right: 1px solid #D4CCC5; }
     header { background-color: transparent !important; }
     
+    /* ✨ [終極凍結] 徹底封鎖側邊欄滾動與原生留白，消除實驗干擾 */
+    [data-testid="stSidebar"] {
+        overflow: hidden !important;
+        overscroll-behavior: none !important;
+    }
+    [data-testid="stSidebar"] [data-testid="stSidebarUserContent"] {
+        overflow-y: hidden !important;
+        padding-top: 2rem !important; /* 暴力覆蓋 Streamlit 原生的 6rem 超大頂部留白 */
+        padding-bottom: 1rem !important;
+    }
+    [data-testid="stSidebar"] ::-webkit-scrollbar {
+        display: none !important;
+        width: 0px !important;
+    }
+    
     [data-testid="stVerticalBlockBorderWrapper"] {
         background-color: #FFFFFF; border-radius: 20px; border: none;
         box-shadow: 0px 4px 15px rgba(0,0,0,0.05); padding: 20px; margin-bottom: 20px;
@@ -98,15 +113,15 @@ st.markdown("""
         justify-content: flex-start !important; 
         font-size: 1.1rem !important; 
         height: auto !important; 
-        padding: 10px 15px !important; /* 增加內距讓按鈕有呼吸空間 */
-        margin-bottom: 8px !important; /* 增加按鈕之間的上下距離 */
-        display: flex !important;      /* 強制啟用 Flex 佈局 */
+        padding: 10px 15px !important; 
+        margin-bottom: 8px !important; 
+        display: flex !important;      
         align-items: center !important;
-        gap: 12px !important;          /* 強制隔開 Emoji 與文字 */
+        gap: 12px !important;          
     }
     [data-testid="stSidebar"] .stButton>button:hover { 
         background-color: #EAE3DC !important; 
-        transform: translateY(0px) !important; /* 覆蓋掉全域的懸浮跳動，讓側邊欄保持穩定 */
+        transform: translateY(0px) !important; 
     }
 
     .stProgress > div > div > div > div { background-color: #A3968C; }
@@ -267,11 +282,13 @@ with st.sidebar:
     
     st.markdown("<hr style='margin:15px 0;'>", unsafe_allow_html=True)
     
-    with st.expander("👁️ 眼動儀實驗控制面板", expanded=True):
-        st.markdown(f"<div style='color:#2E7D32; font-weight:bold; font-size:12px; margin-bottom:8px;'>目前受測者 ID: {st.session_state.student_id}</div>", unsafe_allow_html=True)
+    # ✨ 永遠無法關閉的控制面板
+    st.markdown("<div style='font-weight: 800; color: #333; margin-bottom: 10px; padding-left: 5px;'>👁️ 實驗控制面板</div>", unsafe_allow_html=True)
+    with st.container(border=True):
+        st.markdown(f"<div style='color:#2E7D32; font-weight:bold; font-size:12px; margin-bottom:8px;'>受測者 ID: {st.session_state.student_id}</div>", unsafe_allow_html=True)
         
-        st.markdown('<div style="position:absolute; left:-9999px; opacity:0; width:1px; height:1px;">', unsafe_allow_html=True)
-        st.text_input("TRACKER_BRIDGE", key="tracker_bridge", on_change=process_tracker_data)
+        st.markdown('<div style="position:absolute; left:-9999px; top:-9999px; width:0px; height:0px; overflow:hidden;">', unsafe_allow_html=True)
+        st.text_input("TRACKER_BRIDGE", key="tracker_bridge", on_change=process_tracker_data, label_visibility="collapsed")
         st.markdown('</div>', unsafe_allow_html=True)
         
         if st.session_state.get("tracker_msg"):
@@ -279,9 +296,9 @@ with st.sidebar:
             
         tracker_html = f"""
         <div style="font-family: sans-serif; display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px;">
-            <button id="btn-start" style="padding:10px; background:#E8F5E9; color:#2E7D32; border:1px solid #C8E6C9; border-radius:8px; font-weight:bold; cursor:pointer;">▶️ 開啟行為追蹤 (1Hz 心跳)</button>
+            <button id="btn-start" style="padding:10px; background:#E8F5E9; color:#2E7D32; border:1px solid #C8E6C9; border-radius:8px; font-weight:bold; cursor:pointer;">▶️ 開啟行為追蹤</button>
             <button id="btn-stop" style="display:none; padding:10px; background:#FFEBEE; color:#C62828; border:1px solid #FFCDD2; border-radius:8px; font-weight:bold; cursor:pointer;">⏸️ 暫停並強制上傳</button>
-            <button id="btn-save" style="padding:10px; background:#E3F2FD; color:#1565C0; border:1px solid #BBDEFB; border-radius:8px; font-weight:bold; cursor:pointer;">💾 手動強制寫入</button>
+            <button id="btn-save" style="display:none;">💾 手動強制寫入</button>
             <div id="status-light" style="font-size:12px; font-weight:bold; color:#777; text-align:center;">本地暫存: 0 筆等待發送</div>
         </div>
         <script>
@@ -416,7 +433,6 @@ with st.sidebar:
             
             const btnStart = document.getElementById('btn-start');
             const btnStop = document.getElementById('btn-stop');
-            const btnSave = document.getElementById('btn-save');
             const statusLight = document.getElementById('status-light');
             
             function updateUI() {{
@@ -454,54 +470,21 @@ with st.sidebar:
                 p.__SEND_BATCH__();
                 updateUI(); 
             }};
-            
-            btnSave.onclick = () => {{
-                p.__SEND_BATCH__();
-                setTimeout(() => {{
-                    if(JSON.parse(localStorage.getItem(LOCAL_KEY) || '[]').length === 0) {{
-                        alert('✅ 所有本地暫存資料已成功發送至雲端！');
-                    }}
-                }}, 500);
-            }};
         </script>
         """
-        components.html(tracker_html, height=155)
+        components.html(tracker_html, height=110)
         
-        col_db1, col_db2 = st.columns(2)
-        with col_db1:
-            if st.button("📊 檢視資料表", use_container_width=True):
-                st.session_state.show_tracker_db = not st.session_state.get("show_tracker_db", False)
-        with col_db2:
-            if st.button("🗑️ 清空紀錄", use_container_width=True):
-                try:
-                    with psycopg2.connect(SUPABASE_URI) as conn:
-                        with conn.cursor() as cursor:
-                            cursor.execute("TRUNCATE TABLE user_behavior_logs_v4 RESTART IDENTITY;")
-                        conn.commit()
-                    st.session_state.clear_signal += 1 
-                    st.success("✅ 雲端與本地行為紀錄已徹底清空！")
-                    st.rerun()
-                except Exception as e:
-                    st.error(f"清空失敗: {e}")
-                    
-        if st.session_state.get("show_tracker_db", False):
+        if st.button("🗑️ 清空紀錄", use_container_width=True):
             try:
                 with psycopg2.connect(SUPABASE_URI) as conn:
                     with conn.cursor() as cursor:
-                        cursor.execute("SELECT id, 時間, timestamp_ms, current_section, scroll_y, action_type, 事件細節, x, y FROM user_behavior_logs_v4 ORDER BY id DESC LIMIT 50")
-                        rows = cursor.fetchall()
-                        cols = [desc[0] for desc in cursor.description]
-                        df_logs = pd.DataFrame(rows, columns=cols)
-                        
-                if not df_logs.empty:
-                    st.dataframe(df_logs, use_container_width=True, hide_index=True)
-                    st.caption(f"顯示最新 {len(df_logs)} 筆資料")
-                else:
-                    st.info("目前雲端尚無行為紀錄。")
+                        cursor.execute("TRUNCATE TABLE user_behavior_logs_v4 RESTART IDENTITY;")
+                    conn.commit()
+                st.session_state.clear_signal += 1 
+                st.success("✅ 雲端與本地行為紀錄已徹底清空！")
+                st.rerun()
             except Exception as e:
-                st.error(f"讀取資料表失敗: {e}")
-
-    st.button("🚪 登出系統", use_container_width=True)
+                st.error(f"清空失敗: {e}")
 
 # ==========================================
 # 5. 路由系統 (注入頁面身分證)
@@ -698,6 +681,7 @@ if st.session_state.current_page == "系統首頁":
                     <div style="background: {h['c']}15; color: {h['c']}; padding: 5px 12px; border-radius: 20px; font-weight: 800; font-size: 0.85rem;">⏳ {h['q']}</div>
                 </div>
                 """, unsafe_allow_html=True)
+
 elif st.session_state.current_page == "視覺化介面":
     # ==========================================
     # 👑 [視覺化介面 CSS] 左側篩選(30%) + 右側圖表上下對切(70%)
@@ -791,7 +775,7 @@ elif st.session_state.current_page == "視覺化介面":
     # 🟨 左側：條件篩選面板 (全高度)
     # ==========================================
     with col_left_panel:
-        with st.container(border=True): # ✨ 新增這個容器來製造專屬框框
+        with st.container(border=True): 
             st.markdown("<div id='zone-v-filter' style='position:absolute; top:-30px; left:0; width:1px; height:1px;'></div>", unsafe_allow_html=True)
             st.markdown("<div style='font-weight:bold; color:#555; margin-bottom:5px; font-size:1.1rem;'>🔍 全站課程搜尋</div>", unsafe_allow_html=True)
             search_term = st.text_input("搜尋關鍵字", key="search_term", placeholder="請輸入課程名稱或選課代號...", label_visibility="collapsed")
@@ -947,7 +931,6 @@ elif st.session_state.current_page == "視覺化介面":
             
             st.markdown("<div style='margin-top: 15px;'></div>", unsafe_allow_html=True) 
             st.button("🔄 重置條件", on_click=reset_all, use_container_width=True)
-
 
     # ==========================================
     # 🟪/🟥 右側：圖表區 (上下對半)
@@ -1280,7 +1263,6 @@ elif st.session_state.current_page == "詳細課程":
                 if any(c['id'] == current_code for c in st.session_state.my_courses): 
                     st.toast("已在收藏中！", icon="⚠️")
                 else:
-                    # ✨ [修復魔法] 將時間正規表達式解析邏輯帶入詳細課程的加入收藏按鈕中
                     c_type_raw = str(course_data.get('必選修', '選修')).upper()
                     c_type = '必修' if c_type_raw == 'M' else '選修'
                     try: credits = int(float(course_data.get('學分', course_data.get('學分數', 2))))
@@ -1324,10 +1306,10 @@ elif st.session_state.current_page == "我的收藏":
             flex-direction: column !important;
         }
 
-        /* 2. 課表專屬 CSS：強制拉高以填滿剩餘空間 */
+        /* 2. 課表專屬 CSS：高度極致壓縮，避免撐破畫面產生微距滑動 */
         .timetable-full {
             width: 100%;
-            height: 490px; /* 🚀 魔法在這裡：強制表格高度，完美平分底部空白 */
+            height: 450px !important; /* ✨ 壓縮總高度，確保不會超過 650px 容器 */
             border-collapse: collapse;
             table-layout: fixed;
             background-color: white;
@@ -1337,6 +1319,7 @@ elif st.session_state.current_page == "我的收藏":
             text-align: center;
             vertical-align: middle;
             font-size: 11px;
+            height: 45px !important; /* ✨ 強制將每一格的高度壓扁至 45px */
         }
         .timetable-full th {
             background-color: #F8F6F4;
@@ -1347,29 +1330,47 @@ elif st.session_state.current_page == "我的收藏":
             color: #222;
             font-weight: 900;
             border-radius: 4px;
+            font-size: 11px !important; /* ✨ 微調課表內字體大小以適應小格子 */
+            line-height: 1.1;
         }
         .timetable-full td.conflict {
             background-color: #FADBD8;
             color: #C0392B;
             font-weight: bold;
+            font-size: 11px !important;
         }
 
-        /* 3. 課程卡片樣式優化 */
+        /* 3. 課程卡片樣式優化：極致壓縮留白 */
         .fav-card {
             background-color: #F8F6F4;
             border: 1px solid #EAE6E3;
             border-radius: 10px;
-            padding: 8px 12px;
-            margin-bottom: 8px;
+            padding: 6px 12px;  
+            margin-bottom: 6px; 
             display: flex;
             align-items: center;
-            min-height: 50px;
+            min-height: 40px;   
         }
         .fav-enrolled {
             border-left: 6px solid #4A7C59 !important;
             background-color: #F0F4F0 !important;
         }
 
+        /* ✨ 針對候選清單的按鈕進行極限壓縮，避免撐高卡片 */
+        [data-testid="column"]:nth-child(1) .stButton>button {
+            height: 32px !important;
+            min-height: 32px !important;
+            padding: 2px 10px !important;
+            font-size: 0.8rem !important;
+        }
+
+        /* ✨ 暴力隱藏我的收藏左右兩個主區塊的任何捲動可能性 */
+        [data-testid="stVerticalBlockBorderWrapper"]:has(.timetable-full) > div > div,
+        [data-testid="stVerticalBlockBorderWrapper"]:has(.fav-card) > div > div {
+            overflow-y: hidden !important;
+            overscroll-behavior: none !important;
+        }
+        
         /* 隱藏原生容器多餘的間距 */
         [data-testid="stVerticalBlock"] > div { padding: 0 !important; }
     </style>
@@ -1431,13 +1432,32 @@ elif st.session_state.current_page == "我的收藏":
                     card_style = "fav-enrolled" if is_enrolled else ""
                     status_ico = "⛔" if is_conf else ("✅" if is_enrolled else "⚪")
                     
-                    # 課程條目排版
+                    # ✨ 修改：時間翻譯機！將 ['一6', '一7', '一8'] 轉換為 (一) 6-8
+                    formatted_time = "未定"
+                    if course['time']:
+                        day_dict = defaultdict(list)
+                        for t in course['time']:
+                            if len(t) >= 2:
+                                day_dict[t[0]].append(int(t[1:]) if t[1:].isdigit() else t[1:])
+                        time_parts = []
+                        for d, periods in day_dict.items():
+                            if all(isinstance(p, int) for p in periods):
+                                periods.sort()
+                                if len(periods) > 1 and periods[-1] - periods[0] == len(periods) - 1:
+                                    time_parts.append(f"({d}) {periods[0]}-{periods[-1]}")
+                                else:
+                                    time_parts.append(f"({d}) {','.join(map(str, periods))}")
+                            else:
+                                time_parts.append(f"({d}) {','.join(map(str, periods))}")
+                        formatted_time = " ".join(time_parts)
+
+                    # ✨ 修改：將代碼與「翻譯後的時間」合併成單行
                     ci, ca, cd = st.columns([3.5, 1.2, 0.6])
                     ci.markdown(f"""
                         <div class="fav-card {card_style}">
                             <div style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
-                                <span style="font-size: 13px; font-weight: 800; color: #333;">{status_ico} {course['name']}</span><br>
-                                <span style="font-size: 11px; color: #888;">代碼: {course['id']}</span>
+                                <span style="font-size: 13px; font-weight: 800; color: #333;">{status_ico} {course['name']}</span>
+                                <span style="font-size: 11px; color: #888; margin-left: 6px;">({course['id']} | {formatted_time})</span>
                             </div>
                         </div>
                     """, unsafe_allow_html=True)
@@ -1465,12 +1485,13 @@ elif st.session_state.current_page == "我的收藏":
                         msg = f"週{d} 第{p}節：{' & '.join([c['name'] for c in cells])}"
                         if msg not in conflicts: conflicts.append(msg)
 
+            # ✨ 修改：拔除原生 st.success / st.error，改用自製 HTML 取代，完全消滅不可控的留白
             if conflicts:
-                st.error(f"⚠️ 發現 {len(conflicts)} 處衝堂")
+                st.markdown(f"<div style='background-color: #FADBD8; border-left: 4px solid #E74C3C; padding: 6px 12px; border-radius: 4px; margin-bottom: 8px; font-size: 12px; color: #C0392B; font-weight: bold;'>⚠️ 發現 {len(conflicts)} 處衝堂</div>", unsafe_allow_html=True)
             else:
-                st.success("✅ 目前課表狀態良好")
+                st.markdown("<div style='background-color: #E8F5E9; border-left: 4px solid #2E7D32; padding: 6px 12px; border-radius: 4px; margin-bottom: 8px; font-size: 12px; color: #2E7D32; font-weight: bold;'>✅ 目前課表狀態良好</div>", unsafe_allow_html=True)
 
-            st.markdown("<h4 style='text-align: center; margin: 10px 0;'>📅 預覽課表</h4>", unsafe_allow_html=True)
+            st.markdown("<h4 style='text-align: center; margin: 5px 0 10px 0;'>📅 預覽課表</h4>", unsafe_allow_html=True)
 
             # 🚀 動態決定要顯示的節次 (至少 1~10，有晚課才往下延伸)
             display_periods = [p for p in all_periods if p in ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10"] or any(schedule_matrix[d][p] for d in days)]
