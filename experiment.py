@@ -212,7 +212,6 @@ if 'student_id' not in st.session_state:
     q_params = st.query_params
     st.session_state.student_id = q_params.get("id", "Unknown_User")
 
-# ✨ 修改：將預設首頁改為「視覺化介面」
 if 'current_page' not in st.session_state: st.session_state.current_page = "視覺化介面"
 if 'saved_dept' not in st.session_state: st.session_state.saved_dept = "請選擇..."
 if 'saved_class' not in st.session_state: st.session_state.saved_class = "請選擇..."
@@ -261,7 +260,6 @@ with st.sidebar:
     </div>
     """, unsafe_allow_html=True)
     
-    # ✨ 修改：加入 disabled=True 封印不必要的頁面，引導受測者注意力
     if st.button("🏠 系統首頁", use_container_width=True, disabled=True): navigate_to("系統首頁")
     if st.button("📊 視覺化介面", use_container_width=True): navigate_to("視覺化介面")
     if st.button("❤️ 我的收藏", use_container_width=True): navigate_to("我的收藏")
@@ -299,7 +297,6 @@ with st.sidebar:
                 p.__CLEAR_SIG__ = backSignal;
             }}
             
-            // ✨ 修改這裡：拔除複雜的由下而上判定邏輯，單純抓取頁面名稱即可
             p.__ADD_LOG__ = function(type, detail, x_pos = null, y_pos = null) {{
                 if(!p.__IS_TRACKING__) return;
                 
@@ -315,7 +312,6 @@ with st.sidebar:
                 const vH = p.innerHeight;
                 const dpr = p.devicePixelRatio || 1;
                 
-                // 只單純抓取目前身分證所在的頁面名稱
                 const pageFlag = d.getElementById('current-page-flag');
                 const section = pageFlag ? pageFlag.getAttribute('data-page') : '未知頁面';
 
@@ -449,15 +445,12 @@ with st.sidebar:
             }};
             
           btnStop.onclick = () => {{ 
-                // 1. 在關機前，先強制記錄一個「結束實驗」的動作
                 if(p.__IS_TRACKING__) {{
                     p.__ADD_LOG__('experiment_end', '打板點擊：結束實驗', null, null);
                 }}
                 
-                // 2. 記錄完遺言後，才正式關閉追蹤
                 p.__IS_TRACKING__ = false; 
                 
-                // 3. 把最後一包資料送出去
                 p.__SEND_BATCH__();
                 updateUI(); 
             }};
@@ -684,7 +677,6 @@ if st.session_state.current_page == "系統首頁":
         # --- 🔵 右下區塊：全校熱門搶手課程 ---
         with cr:
             st.markdown("<h3 style='font-size: 1.3rem; color: #333; margin: 0 0 14px 0;'>🔥 全校熱門搶手課程</h3>", unsafe_allow_html=True)
-            # 💡 新增第 6 門課，實體拉高總體積以對齊左側
             hots = [
                 {"r": 1, "n": "Python 程式設計與資料分析", "d": "通識中心", "q": "剩 2 名", "c": "#C85A5A"},
                 {"r": 2, "n": "人工智慧概論", "d": "資工系", "q": "剩 5 名", "c": "#C85A5A"},
@@ -807,7 +799,6 @@ elif st.session_state.current_page == "視覺化介面":
             st.markdown("<hr style='margin: 15px 0 10px 0;'>", unsafe_allow_html=True)
             st.markdown("<div style='font-weight:bold; color:#555; margin-bottom:10px; font-size:1.1rem;'>📂 條件篩選面板</div>", unsafe_allow_html=True)
 
-            # 🌟 邏輯原封不動，只是從原本的 st.columns 水平排列改為垂直排列
             if search_term:
                 st.selectbox("1. 系所：", ["(搜尋模式)"], disabled=True)
                 st.selectbox("2. 開課班級：", ["(搜尋模式)"], disabled=True)
@@ -969,7 +960,6 @@ elif st.session_state.current_page == "視覺化介面":
             st.markdown("<div style='font-weight:bold; color:#555; margin-bottom:-10px; font-size:1.05rem;'>📈 課程分佈散點圖</div>", unsafe_allow_html=True)
             
             if not has_valid_filter:
-                # ✨ 修改 1：拔除 st.info，把提示文字直接寫進空白的 Plotly 圖表中
                 fig_scatter = go.Figure().update_layout(
                     plot_bgcolor='rgba(0,0,0,0)', 
                     paper_bgcolor='rgba(0,0,0,0)', 
@@ -989,7 +979,6 @@ elif st.session_state.current_page == "視覺化介面":
                 fig_scatter = px.scatter(filtered, x="難度", y="滿意度", hover_name="課程名稱", hover_data={"難度": True, "滿意度": True, "選課代號": True}, custom_data=["選課代號", "課程名稱"])
                 selected_idx = np.where(filtered["課程名稱"] == selected_course)[0].tolist() if selected_course not in ["請選擇...", "先選學期...", "查無結果..."] else None
                 fig_scatter.update_traces(selectedpoints=selected_idx, marker=dict(color='#D9534F', size=13, opacity=0.8, line=dict(width=1, color='white')))
-                # ✨ 高度微調：設定固定高度避免撐開 flex box
                 fig_scatter.update_layout(xaxis_title="課程難易度", yaxis_title="滿意度", xaxis=dict(range=[0.5, 5.5], gridcolor='#EFEFEF', fixedrange=True), yaxis=dict(range=[0.5, 5.5], gridcolor='#EFEFEF', fixedrange=True), plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', height=280, margin=dict(l=20, r=20, t=30, b=10), clickmode='event+select', dragmode=False)
                 st.plotly_chart(fig_scatter, use_container_width=True, on_select="rerun", selection_mode="points", config={'displayModeBar': False}, key="scatter_chart")
 
@@ -1006,7 +995,6 @@ elif st.session_state.current_page == "視覺化介面":
                     sat_text = "高滿意" if course_info['滿意度'] >= 4 else ("中滿意" if course_info['滿意度'] >= 3 else "低滿意")
                     diff_text = "高難度" if course_info['難度'] >= 4 else ("中難度" if course_info['難度'] >= 2.5 else "低難度")
                     
-                    # ✨ [還原理想排版 1]：標題與「查看詳細資訊 ➔」按鈕並排於最上方
                     col_title, col_btn_detail = st.columns([5, 3])
                     with col_title:
                         st.markdown(f"<div style='background-color: #DCD7D4; padding: 5px 15px; border-radius: 15px; font-weight: bold; font-size: 16px; color: #333; display: inline-block; margin-bottom: 10px; margin-top: 5px;'>{target_course_name}</div>", unsafe_allow_html=True)
@@ -1014,7 +1002,6 @@ elif st.session_state.current_page == "視覺化介面":
                         st.button("查看詳細資訊 ➔", key="btn_to_detail", use_container_width=True, on_click=navigate_to, args=("詳細課程", course_info['選課代號'], target_course_name))
                     
                     sem_val = course_info.get('學期', '未知')
-                    # ✨ [還原理想排版 2]：整合文字資訊，加上 🗓️ 日期圖示與授課教師
                     st.markdown(f"""
                         <div style="background-color: #EFECE9; border-radius: 12px; padding: 10px 15px; margin-bottom: 10px;">
                             <p style="margin: 0 0 8px 0; font-size: 14px; color: #555;">📌 選課代號：{course_info['選課代號']} &nbsp;|&nbsp; 🎓 學分數：{course_info.get('學分', course_info.get('學分數', 2))} &nbsp;|&nbsp; 🗓️ {sem_val}</p>
@@ -1027,7 +1014,6 @@ elif st.session_state.current_page == "視覺化介面":
                         </div>
                     """, unsafe_allow_html=True)
                     
-                    # ✨ [還原理想排版 3]：底部並排「加入收藏」與「模擬排課」按鈕，完美吃套全域圓角 CSS
                     c_btn_a, c_btn_b = st.columns(2)
                     with c_btn_a:
                         if st.button("❤️ 加入收藏", key="vis_add_fav", use_container_width=True):
@@ -1037,7 +1023,7 @@ elif st.session_state.current_page == "視覺化介面":
                             else:
                                 c_type_raw = str(course_info.get('必選修', '選修')).upper()
                                 c_type = '必修' if c_type_raw == 'M' else '選修'
-                                try: credits = int(float(course_info.get('學分', 2)))
+                                try: credits = int(float(course_info.get('學分', course_info.get('學分數', 2))))
                                 except: credits = 2
                                 raw_time = str(course_info.get('上課時間', '')).replace(" ", "")
                                 time_slots = []
@@ -1057,7 +1043,6 @@ elif st.session_state.current_page == "視覺化介面":
                     with c_btn_b:
                         st.button("➕ 模擬排課", key="vis_to_sim", use_container_width=True, on_click=navigate_to, args=("我的收藏",))
                 else:
-                    # ✨ [排版修復] 建立與「有選課狀態」完全一致的結構與佔位符，徹底消除切換時的版面跳動
                     col_title, col_btn_detail = st.columns([5, 3])
                     with col_title:
                         st.markdown("<div style='background-color: #E8E2DE; padding: 5px 15px; border-radius: 15px; font-weight: bold; font-size: 16px; color: #999; display: inline-block; margin-bottom: 10px; margin-top: 5px;'>等待選擇課程...</div>", unsafe_allow_html=True)
@@ -1088,7 +1073,6 @@ elif st.session_state.current_page == "視覺化介面":
                 fig_radar = go.Figure()
                 fig_radar.add_trace(go.Scatterpolar(r=values_closed, theta=categories + [categories[0]], fill='toself', fillcolor=fill_color, line=dict(color=line_color), marker=dict(size=1)))
                 
-                # ✨ 修改 2：加大底部的 margin (b=30)，讓「互動程度」不會被切掉
                 fig_radar.update_layout(
                     polar=dict(
                         bgcolor='rgba(0,0,0,0)', 
@@ -1267,7 +1251,6 @@ elif st.session_state.current_page == "詳細課程":
                     yaxis2=dict(overlaying='y', side='right', range=[0, 150], tickfont=dict(size=10)),
                     dragmode=False
                 )
-                # ✨ 這裡就是徹底靜態化的魔法：加入 config={'staticPlot': True}
                 st.plotly_chart(fig, use_container_width=True, config={'staticPlot': True})
 
             # 🟣 紫色區塊 (右下 - 留言板)
@@ -1294,11 +1277,30 @@ elif st.session_state.current_page == "詳細課程":
         col_f1, col_f2, col_f3 = st.columns(3)
         with col_f1:
             if st.button("❤️ 加入收藏", key="btn_fav_detail", use_container_width=True):
-                if any(c['id'] == current_code for c in st.session_state.my_courses): st.toast("已在收藏中！")
+                if any(c['id'] == current_code for c in st.session_state.my_courses): 
+                    st.toast("已在收藏中！", icon="⚠️")
                 else:
-                    c_type = '必修' if str(course_data.get('必選修')).upper() == 'M' else '選修'
-                    st.session_state.my_courses.append({"id": current_code, "name": name_str, "time": [], "credits": 2, "type": c_type, "enrolled": False})
-                    st.toast("已加入收藏！")
+                    # ✨ [修復魔法] 將時間正規表達式解析邏輯帶入詳細課程的加入收藏按鈕中
+                    c_type_raw = str(course_data.get('必選修', '選修')).upper()
+                    c_type = '必修' if c_type_raw == 'M' else '選修'
+                    try: credits = int(float(course_data.get('學分', course_data.get('學分數', 2))))
+                    except: credits = 2
+                    raw_time = str(course_data.get('上課時間', '')).replace(" ", "")
+                    time_slots = []
+                    for match in re.finditer(r'\(?([一二三四五六日])\)?([0-9A-Za-z,\-~]+)', raw_time):
+                        day, periods_str = match.group(1), match.group(2)
+                        for part in re.split(r'[,、]', periods_str):
+                            if '-' in part or '~' in part:
+                                try:
+                                    s_str, e_str = part.split('-' if '-' in part else '~')
+                                    if s_str.isdigit() and e_str.isdigit():
+                                        for p in range(int(s_str), int(e_str) + 1): time_slots.append(f"{day}{p}")
+                                    else: time_slots.extend([f"{day}{s_str.upper()}", f"{day}{e_str.upper()}"])
+                                except: pass 
+                            else: time_slots.append(f"{day}{int(part)}" if part.isdigit() else f"{day}{part.upper()}")
+                    
+                    st.session_state.my_courses.append({"id": current_code, "name": name_str, "time": time_slots, "credits": credits, "type": c_type, "enrolled": False})
+                    st.toast("已加入收藏！", icon="✨")
         with col_f2:
             st.button("➕ 模擬排課", key="btn_sim_detail", use_container_width=True, on_click=navigate_to, args=("我的收藏",))
         with col_f3:
