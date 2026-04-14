@@ -1089,15 +1089,28 @@ elif st.session_state.current_page == "視覺化介面":
                     with c_btn_b:
                         st.button("➕ 模擬排課", key="vis_to_sim", use_container_width=True, on_click=navigate_to, args=("我的收藏",))
                 else:
-                    # ✨ 空狀態的佔位符也一併調整對齊
+                    # ✨ [排版修復] 建立與「有選課狀態」完全一致的結構與佔位符，徹底消除切換時的版面跳動
+                    col_title, col_btn_detail = st.columns([5, 3])
+                    with col_title:
+                        st.markdown("<div style='background-color: #E8E2DE; padding: 5px 15px; border-radius: 15px; font-weight: bold; font-size: 16px; color: #999; display: inline-block; margin-bottom: 10px; margin-top: 5px;'>等待選擇課程...</div>", unsafe_allow_html=True)
+                    with col_btn_detail:
+                        st.button("查看詳細資訊 ➔", key="btn_to_detail_empty", use_container_width=True, disabled=True)
+
                     st.markdown("""
-                        <div style="background-color: #E8E2DE; padding: 5px 15px; border-radius: 15px; font-weight: bold; font-size: 16px; color: #999; display: inline-block; margin-bottom: 10px; margin-top: 5px;">等待選擇課程...</div>
                         <div style="background-color: #F5F5F5; border-radius: 12px; padding: 10px 15px; margin-bottom: 10px;">
                             <p style="margin: 0 0 8px 0; font-size: 14px; color: #aaa;">📌 選課代號：--- &nbsp;|&nbsp; 🎓 學分數：--- &nbsp;|&nbsp; 🗓️ ---</p>
                             <p style="margin: 0; font-size: 14px; color: #aaa; font-weight: 700;">授課教師：---</p>
                         </div>
-                        <div style="background-color: #F5F5F5; border-radius: 12px; padding: 10px 15px;"><p style="margin: 3px 0; font-size: 15px; color: #aaa;">🔥 綜合滿意度： - / 5</p><p style="margin: 3px 0; font-size: 15px; color: #aaa;">💦 課程難易度： - / 5</p><p style="margin: 3px 0 0 0; font-size: 13px; color: #aaa;">(位於：---)</p></div>
+                        <div style="background-color: #F5F5F5; border-radius: 12px; padding: 10px 15px; margin-bottom: 15px;">
+                            <p style="margin: 3px 0; font-size: 15px; color: #aaa;">🔥 綜合滿意度： - / 5</p><p style="margin: 3px 0; font-size: 15px; color: #aaa;">💦 課程難易度： - / 5</p><p style="margin: 3px 0 0 0; font-size: 13px; color: #aaa;">(位於：---)</p>
+                        </div>
                     """, unsafe_allow_html=True)
+                    
+                    c_btn_empty_a, c_btn_empty_b = st.columns(2)
+                    with c_btn_empty_a:
+                        st.button("❤️ 加入收藏", key="vis_add_fav_empty", use_container_width=True, disabled=True)
+                    with c_btn_empty_b:
+                        st.button("➕ 模擬排課", key="vis_to_sim_empty", use_container_width=True, disabled=True)
 
             with col_radar:
                 st.markdown("<div style='font-weight:bold; color:#555; text-align:center; font-size:1rem; margin-bottom: -15px;'>🌟 多維度屬性分析</div>", unsafe_allow_html=True)
