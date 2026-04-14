@@ -299,42 +299,7 @@ with st.sidebar:
                 p.__CLEAR_SIG__ = backSignal;
             }}
             
-            // 🌟 終極語意標籤偵測引擎：頁面識別 + 由下而上 (Bottom-Up) 判定邏輯
-            function getCurrentSection(vH) {{
-                // 1. 先抓取 Python 埋入的頁面身分證
-                const pageFlag = d.getElementById('current-page-flag');
-                const pageName = pageFlag ? pageFlag.getAttribute('data-page') : '未知頁面';
-
-                if (pageName === '系統首頁') return '首頁導覽';
-                if (pageName === '我的收藏') return '排課與收藏區';
-                if (pageName === '個人設定') return '個人設定區';
-
-                // 判斷元素是否出現在畫面的輔助函數 (只要頂端進入畫面底部，且尚未完全滾出畫面)
-                const isVisible = (id) => {{
-                    const el = d.getElementById(id);
-                    if (!el) return false;
-                    const rect = el.getBoundingClientRect();
-                    return (rect.top < vH * 0.8 && rect.top > -600); 
-                }};
-
-                // 2. 依照不同頁面，進行「由下而上」的判定
-                if (pageName === '視覺化介面') {{
-                    if (isVisible('zone-v-radar')) return '雷達圖與綜合資訊區';
-                    if (isVisible('zone-v-scatter')) return '散點圖選課區';
-                    if (isVisible('zone-v-filter')) return '條件篩選面板';
-                    return '視覺化介面_瀏覽中';
-                }}
-
-                if (pageName === '詳細課程') {{
-                    if (isVisible('zone-d-comment')) return '留言與討論區';
-                    if (isVisible('zone-d-trend')) return '歷年修課趨勢(折線圖)';
-                    if (isVisible('zone-d-info')) return '課程文字詳細資訊';
-                    return '詳細課程_瀏覽中';
-                }}
-
-                return pageName + '_瀏覽中';
-            }}
-            
+            // ✨ 修改這裡：拔除複雜的由下而上判定邏輯，單純抓取頁面名稱即可
             p.__ADD_LOG__ = function(type, detail, x_pos = null, y_pos = null) {{
                 if(!p.__IS_TRACKING__) return;
                 
@@ -350,8 +315,9 @@ with st.sidebar:
                 const vH = p.innerHeight;
                 const dpr = p.devicePixelRatio || 1;
                 
-                // 動態取得目前精確區塊
-                const section = getCurrentSection(vH);
+                // 只單純抓取目前身分證所在的頁面名稱
+                const pageFlag = d.getElementById('current-page-flag');
+                const section = pageFlag ? pageFlag.getAttribute('data-page') : '未知頁面';
 
                 const logEntry = {{
                     time: timeStr, timestamp_ms: ms, scroll_y: scrollY, 
