@@ -1312,22 +1312,10 @@ elif st.session_state.current_page == "我的收藏":
     # ==========================================
     st.markdown("""
     <style>
-        /* 1. 鎖定全螢幕，禁止全域滾動 */
-        html, body, [data-testid="stAppViewContainer"] {
-            overflow: hidden !important;
-        }
-        .block-container {
-            height: 94vh !important; 
-            max-width: 96% !important; 
-            padding: 1.5rem 0 0.5rem 0 !important; 
-            display: flex !important;
-            flex-direction: column !important;
-        }
-
-        /* 2. 課表專屬 CSS：強制拉高以填滿剩餘空間 */
+        /* 課表專屬 CSS：高度極致壓縮，避免撐破畫面產生微距滑動 */
         .timetable-full {
             width: 100%;
-            height: 490px; /* 🚀 魔法在這裡：強制表格高度，完美平分底部空白 */
+            height: 450px !important; 
             border-collapse: collapse;
             table-layout: fixed;
             background-color: white;
@@ -1337,6 +1325,7 @@ elif st.session_state.current_page == "我的收藏":
             text-align: center;
             vertical-align: middle;
             font-size: 11px;
+            height: 45px !important; 
         }
         .timetable-full th {
             background-color: #F8F6F4;
@@ -1347,31 +1336,49 @@ elif st.session_state.current_page == "我的收藏":
             color: #222;
             font-weight: 900;
             border-radius: 4px;
+            font-size: 11px !important; 
+            line-height: 1.1;
         }
         .timetable-full td.conflict {
             background-color: #FADBD8;
             color: #C0392B;
             font-weight: bold;
+            font-size: 11px !important;
         }
 
-        /* 3. 課程卡片樣式優化 */
+        /* 課程卡片樣式優化：極致壓縮留白 */
         .fav-card {
             background-color: #F8F6F4;
             border: 1px solid #EAE6E3;
             border-radius: 10px;
-            padding: 8px 12px;
-            margin-bottom: 8px;
+            padding: 6px 12px;  
+            margin-bottom: 6px; 
             display: flex;
             align-items: center;
-            min-height: 50px;
+            min-height: 40px;   
         }
         .fav-enrolled {
             border-left: 6px solid #4A7C59 !important;
             background-color: #F0F4F0 !important;
         }
 
-        /* 隱藏原生容器多餘的間距 */
-        [data-testid="stVerticalBlock"] > div { padding: 0 !important; }
+        /* 針對候選清單的按鈕進行極限壓縮，避免撐高卡片 */
+        [data-testid="column"]:nth-child(1) .stButton>button {
+            height: 32px !important;
+            min-height: 32px !important;
+            padding: 2px 10px !important;
+            font-size: 0.8rem !important;
+        }
+
+        /* 暴力隱藏我的收藏左右兩個主區塊的任何捲動可能性 */
+        [data-testid="stVerticalBlockBorderWrapper"]:has(.timetable-full) > div > div,
+        [data-testid="stVerticalBlockBorderWrapper"]:has(.fav-card) > div > div {
+            overflow-y: hidden !important;
+            overscroll-behavior: none !important;
+        }
+        
+        /* 隱藏原生容器多餘的間距 (加上 .block-container 前綴，建立防護罩不干擾側邊欄) */
+        .block-container [data-testid="stVerticalBlock"] > div { padding: 0 !important; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -1400,7 +1407,7 @@ elif st.session_state.current_page == "我的收藏":
     col_l, col_r = st.columns(2)
 
     # ==========================================
-    # 🔴 左側：候選清單 (原生固定高度容器)
+    # 🔴 左側：候選清單 
     # ==========================================
     with col_l:
         with st.container(height=650, border=True): 
@@ -1431,13 +1438,32 @@ elif st.session_state.current_page == "我的收藏":
                     card_style = "fav-enrolled" if is_enrolled else ""
                     status_ico = "⛔" if is_conf else ("✅" if is_enrolled else "⚪")
                     
-                    # 課程條目排版
+                    # ✨ 修改：時間翻譯機！將 ['一6', '一7', '一8'] 轉換為 (一) 6-8
+                    formatted_time = "未定"
+                    if course['time']:
+                        day_dict = defaultdict(list)
+                        for t in course['time']:
+                            if len(t) >= 2:
+                                day_dict[t[0]].append(int(t[1:]) if t[1:].isdigit() else t[1:])
+                        time_parts = []
+                        for d, periods in day_dict.items():
+                            if all(isinstance(p, int) for p in periods):
+                                periods.sort()
+                                if len(periods) > 1 and periods[-1] - periods[0] == len(periods) - 1:
+                                    time_parts.append(f"({d}) {periods[0]}-{periods[-1]}")
+                                else:
+                                    time_parts.append(f"({d}) {','.join(map(str, periods))}")
+                            else:
+                                time_parts.append(f"({d}) {','.join(map(str, periods))}")
+                        formatted_time = " ".join(time_parts)
+
+                    # ✨ 修改：將代碼與「翻譯後的時間」合併成單行
                     ci, ca, cd = st.columns([3.5, 1.2, 0.6])
                     ci.markdown(f"""
                         <div class="fav-card {card_style}">
                             <div style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
-                                <span style="font-size: 13px; font-weight: 800; color: #333;">{status_ico} {course['name']}</span><br>
-                                <span style="font-size: 11px; color: #888;">代碼: {course['id']}</span>
+                                <span style="font-size: 13px; font-weight: 800; color: #333;">{status_ico} {course['name']}</span>
+                                <span style="font-size: 11px; color: #888; margin-left: 6px;">({course['id']} | {formatted_time})</span>
                             </div>
                         </div>
                     """, unsafe_allow_html=True)
@@ -1453,7 +1479,7 @@ elif st.session_state.current_page == "我的收藏":
                         st.session_state.my_courses.pop(idx); st.rerun()
 
     # ==========================================
-    # 🟡 右側：預覽課表 (原生固定高度容器)
+    # 🟡 右側：預覽課表 
     # ==========================================
     with col_r:
         with st.container(height=650, border=True):
@@ -1466,11 +1492,11 @@ elif st.session_state.current_page == "我的收藏":
                         if msg not in conflicts: conflicts.append(msg)
 
             if conflicts:
-                st.error(f"⚠️ 發現 {len(conflicts)} 處衝堂")
+                st.markdown(f"<div style='background-color: #FADBD8; border-left: 4px solid #E74C3C; padding: 6px 12px; border-radius: 4px; margin-bottom: 8px; font-size: 12px; color: #C0392B; font-weight: bold;'>⚠️ 發現 {len(conflicts)} 處衝堂</div>", unsafe_allow_html=True)
             else:
-                st.success("✅ 目前課表狀態良好")
+                st.markdown("<div style='background-color: #E8F5E9; border-left: 4px solid #2E7D32; padding: 6px 12px; border-radius: 4px; margin-bottom: 8px; font-size: 12px; color: #2E7D32; font-weight: bold;'>✅ 目前課表狀態良好</div>", unsafe_allow_html=True)
 
-            st.markdown("<h4 style='text-align: center; margin: 10px 0;'>📅 預覽課表</h4>", unsafe_allow_html=True)
+            st.markdown("<h4 style='text-align: center; margin: 5px 0 10px 0;'>📅 預覽課表</h4>", unsafe_allow_html=True)
 
             # 🚀 動態決定要顯示的節次 (至少 1~10，有晚課才往下延伸)
             display_periods = [p for p in all_periods if p in ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10"] or any(schedule_matrix[d][p] for d in days)]
