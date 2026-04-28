@@ -260,31 +260,50 @@ with st.sidebar:
     </div>
     """, unsafe_allow_html=True)
     
-    if st.button("🏠 系統首頁", use_container_width=True, disabled=True): navigate_to("系統首頁")
     if st.button("📊 視覺化介面", use_container_width=True): navigate_to("視覺化介面")
     if st.button("❤️ 我的收藏", use_container_width=True): navigate_to("我的收藏")
-    if st.button("⚙️ 個人設定", use_container_width=True, disabled=True): navigate_to("個人設定")
     
     st.markdown("<hr style='margin:15px 0;'>", unsafe_allow_html=True)
     
     with st.expander("👁️ 眼動儀實驗控制面板", expanded=True):
         st.markdown(f"<div style='color:#2E7D32; font-weight:bold; font-size:12px; margin-bottom:8px;'>目前受測者 ID: {st.session_state.student_id}</div>", unsafe_allow_html=True)
         
-        st.markdown('<div style="position:absolute; left:-9999px; opacity:0; width:1px; height:1px;">', unsafe_allow_html=True)
-        st.text_input("TRACKER_BRIDGE", key="tracker_bridge", on_change=process_tracker_data)
-        st.markdown('</div>', unsafe_allow_html=True)
+        # --- 🚀 終極隱形魔法：精準鎖定 TRACKER_BRIDGE 輸入框外層並移出畫面 ---
+        st.markdown("""
+        <style>
+            div[data-testid="stTextInput"]:has(input[aria-label="TRACKER_BRIDGE"]) {
+                position: absolute !important;
+                left: -9999px !important;
+                opacity: 0 !important;
+                height: 0px !important;
+                width: 0px !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                overflow: hidden !important;
+                pointer-events: none !important;
+            }
+        </style>
+        """, unsafe_allow_html=True)
+        
+        # 這裡直接呼叫輸入框，CSS 會自動把它變不見
+        st.text_input("TRACKER_BRIDGE", key="tracker_bridge", on_change=process_tracker_data, label_visibility="collapsed")
         
         if st.session_state.get("tracker_msg"):
             st.markdown(f"<div style='color:#1565C0; font-weight:bold; font-size:12px; margin-bottom:8px;'>{st.session_state.tracker_msg}</div>", unsafe_allow_html=True)
             
+        # 2. 修改 tracker_html，將 btn-save 加上 display:none 隱藏
         tracker_html = f"""
         <div style="font-family: sans-serif; display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px;">
             <button id="btn-start" style="padding:10px; background:#E8F5E9; color:#2E7D32; border:1px solid #C8E6C9; border-radius:8px; font-weight:bold; cursor:pointer;">▶️ 開啟行為追蹤 (1Hz 心跳)</button>
             <button id="btn-stop" style="display:none; padding:10px; background:#FFEBEE; color:#C62828; border:1px solid #FFCDD2; border-radius:8px; font-weight:bold; cursor:pointer;">⏸️ 暫停並強制上傳</button>
-            <button id="btn-save" style="padding:10px; background:#E3F2FD; color:#1565C0; border:1px solid #BBDEFB; border-radius:8px; font-weight:bold; cursor:pointer;">💾 手動強制寫入</button>
+            <button id="btn-save" style="display:none;">💾 手動強制寫入</button>
             <div id="status-light" style="font-size:12px; font-weight:bold; color:#777; text-align:center;">本地暫存: 0 筆等待發送</div>
         </div>
         <script>
+            // -----------------------------------------------------------
+            // ⚠️ 這裡請保留你原本寫的所有 JavaScript 程式碼，完全不用動！
+            // 從 const p = window.parent; 一直到 btnSave.onclick 結束的邏輯
+            // -----------------------------------------------------------
             const p = window.parent;
             const d = p.document;
             const LOCAL_KEY = 'tracker_v4_backup';
@@ -444,7 +463,7 @@ with st.sidebar:
                 updateUI(); 
             }};
             
-          btnStop.onclick = () => {{ 
+            btnStop.onclick = () => {{ 
                 if(p.__IS_TRACKING__) {{
                     p.__ADD_LOG__('experiment_end', '打板點擊：結束實驗', null, null);
                 }}
@@ -465,24 +484,22 @@ with st.sidebar:
             }};
         </script>
         """
-        components.html(tracker_html, height=155)
         
-        col_db1, col_db2 = st.columns(2)
-        with col_db1:
-            if st.button("📊 檢視資料表", use_container_width=True):
-                st.session_state.show_tracker_db = not st.session_state.get("show_tracker_db", False)
-        with col_db2:
-            if st.button("🗑️ 清空紀錄", use_container_width=True):
-                try:
-                    with psycopg2.connect(SUPABASE_URI) as conn:
-                        with conn.cursor() as cursor:
-                            cursor.execute("TRUNCATE TABLE user_behavior_logs_v4 RESTART IDENTITY;")
-                        conn.commit()
-                    st.session_state.clear_signal += 1 
-                    st.success("✅ 雲端與本地行為紀錄已徹底清空！")
-                    st.rerun()
-                except Exception as e:
-                    st.error(f"清空失敗: {e}")
+        # 將高度從 155 縮減為 115，因為少了一顆按鈕
+        components.html(tracker_html, height=115)
+        
+        # 3. 移除雙欄配置與檢視資料表功能，單純保留清空紀錄按鈕
+        if st.button("🗑️ 清空紀錄", use_container_width=True):
+            try:
+                with psycopg2.connect(SUPABASE_URI) as conn:
+                    with conn.cursor() as cursor:
+                        cursor.execute("TRUNCATE TABLE user_behavior_logs_v4 RESTART IDENTITY;")
+                    conn.commit()
+                st.session_state.clear_signal += 1 
+                st.success("✅ 雲端與本地行為紀錄已徹底清空！")
+                st.rerun()
+            except Exception as e:
+                st.error(f"清空失敗: {e}")
                     
         if st.session_state.get("show_tracker_db", False):
             try:
@@ -500,8 +517,6 @@ with st.sidebar:
                     st.info("目前雲端尚無行為紀錄。")
             except Exception as e:
                 st.error(f"讀取資料表失敗: {e}")
-
-    st.button("🚪 登出系統", use_container_width=True)
 
 # ==========================================
 # 5. 路由系統 (注入頁面身分證)
@@ -1312,7 +1327,25 @@ elif st.session_state.current_page == "我的收藏":
     # ==========================================
     st.markdown("""
     <style>
-        /* 課表專屬 CSS：高度極致壓縮，避免撐破畫面產生微距滑動 */
+        /* --- 1. 全局鎖定 (Global Lock)：鎖死最外層，不讓整個網頁滑動 --- */
+        html, body, [data-testid="stAppViewContainer"] {
+            overflow: hidden !important;
+        }
+        .block-container {
+            height: 94vh !important; 
+            max-width: 96% !important; 
+            padding: 1.5rem 0 1rem 0 !important; 
+            display: flex !important;
+            flex-direction: column !important;
+            overflow: hidden !important; /* 確保外層絕對不出現滾動條 */
+        }
+        
+        /* 讓主垂直區塊變成 Flex 容器，穩定撐開高度 */
+        div[data-testid="stVerticalBlock"]:first-of-type {
+            display: flex; flex-direction: column; height: 100%;
+        }
+
+        /* --- 原本的課表與卡片極致壓縮 CSS (完全保留) --- */
         .timetable-full {
             width: 100%;
             height: 450px !important; 
@@ -1327,57 +1360,43 @@ elif st.session_state.current_page == "我的收藏":
             font-size: 11px;
             height: 45px !important; 
         }
-        .timetable-full th {
-            background-color: #F8F6F4;
-            font-weight: 800;
-        }
+        .timetable-full th { background-color: #F8F6F4; font-weight: 800; }
         .timetable-full td.filled {
-            background-color: #DCD7D4;
-            color: #222;
-            font-weight: 900;
-            border-radius: 4px;
-            font-size: 11px !important; 
-            line-height: 1.1;
+            background-color: #DCD7D4; color: #222; font-weight: 900;
+            border-radius: 4px; font-size: 11px !important; line-height: 1.1;
         }
         .timetable-full td.conflict {
-            background-color: #FADBD8;
-            color: #C0392B;
-            font-weight: bold;
-            font-size: 11px !important;
+            background-color: #FADBD8; color: #C0392B; font-weight: bold; font-size: 11px !important;
         }
 
-        /* 課程卡片樣式優化：極致壓縮留白 */
         .fav-card {
-            background-color: #F8F6F4;
-            border: 1px solid #EAE6E3;
-            border-radius: 10px;
-            padding: 6px 12px;  
-            margin-bottom: 6px; 
-            display: flex;
-            align-items: center;
-            min-height: 40px;   
+            background-color: #F8F6F4; border: 1px solid #EAE6E3;
+            border-radius: 10px; padding: 6px 12px;  
+            margin-bottom: 6px; display: flex; align-items: center; min-height: 40px;   
         }
         .fav-enrolled {
-            border-left: 6px solid #4A7C59 !important;
-            background-color: #F0F4F0 !important;
+            border-left: 6px solid #4A7C59 !important; background-color: #F0F4F0 !important;
         }
 
-        /* 針對候選清單的按鈕進行極限壓縮，避免撐高卡片 */
         [data-testid="column"]:nth-child(1) .stButton>button {
-            height: 32px !important;
-            min-height: 32px !important;
-            padding: 2px 10px !important;
-            font-size: 0.8rem !important;
+            height: 32px !important; min-height: 32px !important;
+            padding: 2px 10px !important; font-size: 0.8rem !important;
         }
 
-        /* 暴力隱藏我的收藏左右兩個主區塊的任何捲動可能性 */
+        /* --- 2. 內層解放 (Local Scroll)：取代原本的暴力隱藏 --- */
+        /* 針對候選清單與課表的內部容器，開啟獨立滾動 */
         [data-testid="stVerticalBlockBorderWrapper"]:has(.timetable-full) > div > div,
         [data-testid="stVerticalBlockBorderWrapper"]:has(.fav-card) > div > div {
-            overflow-y: hidden !important;
-            overscroll-behavior: none !important;
+            overflow-y: auto !important; /* 解除封印，允許內部滾動 */
+            overscroll-behavior: contain !important; /* 避免內部滾動到底時，意外牽動外層 */
+            padding-right: 5px; /* 留一點空間給滾動條，避免遮擋文字 */
         }
-        
-        /* 隱藏原生容器多餘的間距 (加上 .block-container 前綴，建立防護罩不干擾側邊欄) */
+
+        /* 美化滾動軸 (讓它看起來更精緻，不破壞你原本的設計感) */
+        ::-webkit-scrollbar { width: 5px; }
+        ::-webkit-scrollbar-thumb { background-color: #E2DCD5; border-radius: 10px; }
+
+        /* 隱藏原生容器多餘的間距 */
         .block-container [data-testid="stVerticalBlock"] > div { padding: 0 !important; }
     </style>
     """, unsafe_allow_html=True)
