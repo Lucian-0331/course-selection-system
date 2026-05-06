@@ -15,7 +15,7 @@ import json
 # ==========================================
 # 🌟 雲端行為追蹤資料庫設定 (Supabase V4)
 # ==========================================
-SUPABASE_URI = "postgresql://postgres.vtcpjriwbkvkimzlrfoo:Hh125974778@aws-1-ap-south-1.pooler.supabase.com:6543/postgres?sslmode=require"
+SUPABASE_URI = "postgresql://postgres.vtcpjriwbkvkimzlrfoo:1234567890@aws-1-ap-south-1.pooler.supabase.com:6543/postgres?sslmode=require"
 
 @st.cache_resource
 def init_tracker_db():
@@ -98,15 +98,15 @@ st.markdown("""
         justify-content: flex-start !important; 
         font-size: 1.1rem !important; 
         height: auto !important; 
-        padding: 10px 15px !important; /* 增加內距讓按鈕有呼吸空間 */
-        margin-bottom: 8px !important; /* 增加按鈕之間的上下距離 */
-        display: flex !important;      /* 強制啟用 Flex 佈局 */
+        padding: 10px 15px !important; 
+        margin-bottom: 8px !important; 
+        display: flex !important;      
         align-items: center !important;
-        gap: 12px !important;          /* 強制隔開 Emoji 與文字 */
+        gap: 12px !important;          
     }
     [data-testid="stSidebar"] .stButton>button:hover { 
         background-color: #EAE3DC !important; 
-        transform: translateY(0px) !important; /* 覆蓋掉全域的懸浮跳動，讓側邊欄保持穩定 */
+        transform: translateY(0px) !important; 
     }
 
     .stProgress > div > div > div > div { background-color: #A3968C; }
@@ -205,6 +205,51 @@ def get_fixed_trend_data(course_code):
     random.seed(course_code)
     return pd.DataFrame({"Year": ['109', '110', '111', '112', '113'], "Students": [random.randint(40, 120) for _ in range(5)], "AvgScore": [random.randint(65, 95) for _ in range(5)]})
 
+# ✨ 新增：難度連動的真實成績分布圖演算法
+@st.cache_data
+def get_fixed_grade_dist_data(course_code, difficulty):
+    random.seed(course_code)
+    bins = ["0-9", "10-19", "20-29", "30-39", "40-49", "50-59", "60-69", "70-79", "80-89", "90-100"]
+    
+    # 1. 根據傳入的「課程難度」決定成績模型 (Profile)
+    if difficulty >= 4.5:
+        profile = random.choice(["hard", "bimodal"]) # 極硬課：死當多或M型雙峰
+    elif difficulty >= 3.5:
+        profile = random.choice(["strict_curve", "hard"]) # 偏硬課：嚴格常態或偏難
+    elif difficulty >= 2.5:
+        profile = "normal" # 適中：一般常態分佈
+    else:
+        profile = random.choice(["easy", "super_sweet"]) # 甜課：偏易或大放送
+        
+    # 2. 設定不同模型的權重 (Weights)
+    if profile == "super_sweet":
+        weights = [0, 0, 0, 0, 0, 0, 5, 15, 30, 50] # 90分以上大放送
+    elif profile == "easy":
+        weights = [0, 0, 0, 0, 1, 2, 8, 20, 45, 24] # 80-89分最多
+    elif profile == "normal":
+        weights = [0, 0, 0, 1, 2, 5, 15, 30, 35, 12] # 高峰在70-85
+    elif profile == "strict_curve":
+        weights = [1, 2, 5, 10, 15, 20, 25, 15, 5, 2] # 嚴格控制及格率，高峰60-70
+    elif profile == "hard":
+        weights = [15, 5, 2, 5, 2, 25, 20, 15, 8, 3] # 死當多(0-9)，同情分多(60-69)
+    else: # bimodal (雙峰分佈)
+        weights = [5, 15, 5, 2, 2, 5, 10, 20, 25, 11] # 兩極化
+        
+    student_count = random.randint(45, 120)
+    dist = []
+    
+    # 3. 注入真實感白噪音 (±20% 隨機震盪)
+    for w in weights:
+        noise = random.uniform(0.8, 1.2)
+        dist.append(w * noise)
+        
+    # 4. 正規化與人數還原
+    total = sum(dist)
+    if total > 0:
+        dist = [int(round((val/total) * student_count)) for val in dist]
+    
+    return pd.DataFrame({"Range": bins, "Count": dist})
+
 # ==========================================
 # 3. 初始化全局記憶體
 # ==========================================
@@ -268,7 +313,6 @@ with st.sidebar:
     with st.expander("👁️ 眼動儀實驗控制面板", expanded=True):
         st.markdown(f"<div style='color:#2E7D32; font-weight:bold; font-size:12px; margin-bottom:8px;'>目前受測者 ID: {st.session_state.student_id}</div>", unsafe_allow_html=True)
         
-        # --- 🚀 終極隱形魔法：精準鎖定 TRACKER_BRIDGE 輸入框外層並移出畫面 ---
         st.markdown("""
         <style>
             div[data-testid="stTextInput"]:has(input[aria-label="TRACKER_BRIDGE"]) {
@@ -285,13 +329,11 @@ with st.sidebar:
         </style>
         """, unsafe_allow_html=True)
         
-        # 這裡直接呼叫輸入框，CSS 會自動把它變不見
         st.text_input("TRACKER_BRIDGE", key="tracker_bridge", on_change=process_tracker_data, label_visibility="collapsed")
         
         if st.session_state.get("tracker_msg"):
             st.markdown(f"<div style='color:#1565C0; font-weight:bold; font-size:12px; margin-bottom:8px;'>{st.session_state.tracker_msg}</div>", unsafe_allow_html=True)
             
-        # 2. 修改 tracker_html，將 btn-save 加上 display:none 隱藏
         tracker_html = f"""
         <div style="font-family: sans-serif; display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px;">
             <button id="btn-start" style="padding:10px; background:#E8F5E9; color:#2E7D32; border:1px solid #C8E6C9; border-radius:8px; font-weight:bold; cursor:pointer;">▶️ 開啟行為追蹤 (1Hz 心跳)</button>
@@ -300,10 +342,6 @@ with st.sidebar:
             <div id="status-light" style="font-size:12px; font-weight:bold; color:#777; text-align:center;">本地暫存: 0 筆等待發送</div>
         </div>
         <script>
-            // -----------------------------------------------------------
-            // ⚠️ 這裡請保留你原本寫的所有 JavaScript 程式碼，完全不用動！
-            // 從 const p = window.parent; 一直到 btnSave.onclick 結束的邏輯
-            // -----------------------------------------------------------
             const p = window.parent;
             const d = p.document;
             const LOCAL_KEY = 'tracker_v4_backup';
@@ -467,9 +505,7 @@ with st.sidebar:
                 if(p.__IS_TRACKING__) {{
                     p.__ADD_LOG__('experiment_end', '打板點擊：結束實驗', null, null);
                 }}
-                
                 p.__IS_TRACKING__ = false; 
-                
                 p.__SEND_BATCH__();
                 updateUI(); 
             }};
@@ -485,10 +521,8 @@ with st.sidebar:
         </script>
         """
         
-        # 將高度從 155 縮減為 115，因為少了一顆按鈕
         components.html(tracker_html, height=115)
         
-        # 3. 移除雙欄配置與檢視資料表功能，單純保留清空紀錄按鈕
         if st.button("🗑️ 清空紀錄", use_container_width=True):
             try:
                 with psycopg2.connect(SUPABASE_URI) as conn:
@@ -521,16 +555,11 @@ with st.sidebar:
 # ==========================================
 # 5. 路由系統 (注入頁面身分證)
 # ==========================================
-# 🎯 【頁面身分證】：讓 JS 知道現在在哪個畫面
 st.markdown(f"<div id='current-page-flag' data-page='{st.session_state.current_page}' style='display:none;'></div>", unsafe_allow_html=True)
 
 if st.session_state.current_page == "系統首頁":
-    # ==========================================
-    # 👑 [首頁終極 CSS] 實體內容對齊法 (拔除複雜佈局，回歸穩定)
-    # ==========================================
     st.markdown("""
     <style>
-        /* 1. 螢幕高度鎖死與呼吸空間 */
         html, body, [data-testid="stAppViewContainer"] {
             overflow: hidden !important;
         }
@@ -546,16 +575,12 @@ if st.session_state.current_page == "系統首頁":
         div[data-testid="stVerticalBlock"]:first-of-type {
             display: flex; flex-direction: column; height: 100%; gap: 10px;
         }
-
-        /* 2. 標題字體保護 */
         .welcome-title {
             font-size: clamp(26px, 3vw, 38px) !important;
             font-weight: 900 !important;
             color: #222 !important;
             margin: 0 !important;
         }
-
-        /* 3. 區域劃分 (上方固定，下方填滿) */
         div[data-testid="stVerticalBlock"]:has(#top-marker) { flex: 0 0 auto; }
         div[data-testid="stVerticalBlock"]:has(#bottom-marker) { 
             flex: 1 1 0; min-height: 0; 
@@ -563,35 +588,24 @@ if st.session_state.current_page == "系統首頁":
         div[data-testid="stVerticalBlock"]:has(#bottom-marker) > div > [data-testid="stHorizontalBlock"] {
             height: 100%; gap: 20px !important;
         }
-
-        /* 4. 左右側攔位基本設定 (內部微滾動) */
         div[data-testid="stVerticalBlock"]:has(#bottom-marker) [data-testid="column"] {
             height: 100%; overflow-y: auto; overflow-x: hidden; padding: 15px 20px;
             background-color: #FDFCFB; border: 1px solid #EAE6E3;
             border-radius: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.02);
         }
-
-        /* 隱藏捲軸 */
         div[data-testid="stVerticalBlock"]:has(#bottom-marker) [data-testid="column"]::-webkit-scrollbar { width: 4px; }
         div[data-testid="stVerticalBlock"]:has(#bottom-marker) [data-testid="column"]::-webkit-scrollbar-thumb {
             background-color: #E2DCD5; border-radius: 10px;
         }
-
-        /* 5. 卡片樣式設計 (實體對齊的核心：控制 Margin) */
-        /* 右側卡片：加上微距拉長總高度 */
         .info-card-full {
             background-color: #FFFFFF; border: 1px solid #EAE6E3;
-            border-radius: 12px; padding: 12px 15px; margin-bottom: 14px; /* 設定空隙 */
+            border-radius: 12px; padding: 12px 15px; margin-bottom: 14px; 
             box-shadow: 0 1px 4px rgba(0,0,0,0.02);
             display: flex; justify-content: space-between; align-items: center;
         }
-
-        /* 左側：消除 st.container 的內部干擾 */
         div[data-testid="stVerticalBlock"]:has(#bottom-marker) [data-testid="column"]:nth-child(1) [data-testid="stVerticalBlock"] {
             gap: 0 !important;
         }
-
-        /* 左側卡片文字區塊 */
         .info-card-top {
             background-color: #FFFFFF; border: 1px solid #EAE6E3;
             border-bottom: none; 
@@ -599,15 +613,12 @@ if st.session_state.current_page == "系統首頁":
             box-shadow: 0 1px 4px rgba(0,0,0,0.01);
             position: relative; z-index: 2;
         }
-        
         .card-header { font-weight: 800; font-size: 1.1rem; color: #222; margin-bottom: 5px; }
         .card-meta { font-size: 0.85rem; color: #666; margin-bottom: 8px; }
         .tag-row { display: flex; flex-wrap: wrap; gap: 6px; }
-        
-        /* 左側卡片按鈕 (無縫貼合 + 底部留空隙) */
         div[data-testid="stVerticalBlock"]:has(#bottom-marker) [data-testid="column"]:nth-child(1) .stButton {
-            margin-top: -14px !important; /* 強制向上吸附文字區塊 */
-            margin-bottom: 14px !important; /* 與右側卡片維持相同空隙 */
+            margin-top: -14px !important; 
+            margin-bottom: 14px !important; 
         }
         div[data-testid="stVerticalBlock"]:has(#bottom-marker) [data-testid="column"]:nth-child(1) .stButton>button {
             background-color: #FAFAFA !important; border: 1px solid #EAE6E3 !important;
@@ -624,14 +635,10 @@ if st.session_state.current_page == "系統首頁":
     </style>
     """, unsafe_allow_html=True)
 
-    # 變數計算
     current_enrolled_credits = sum(c['credits'] for c in st.session_state.my_courses if c.get('enrolled', False))
     total_after_this_sem = 85 + current_enrolled_credits
     needed_credits = max(128 - total_after_this_sem, 0)
 
-    # ==========================================
-    # 🟨 上方區塊 (歡迎詞 + 時間 + 學分)
-    # ==========================================
     with st.container():
         st.markdown('<div id="top-marker"></div>', unsafe_allow_html=True)
         c1, c2 = st.columns([3, 1])
@@ -645,7 +652,6 @@ if st.session_state.current_page == "系統首頁":
             """, height=35)
 
         col1, col2, col3 = st.columns(3)
-        # 💡 提示文字：完美對齊基準線
         tip_html = "<span style='color: #C85A5A; font-size: 0.85rem; font-weight: 600; margin-left: 10px;'>💡 建議本學期再修 2-3 門必修課</span>" if needed_credits > 40 else "<span style='color: #4A7C59; font-size: 0.85rem; font-weight: 600; margin-left: 10px;'>✨ 進度領先！可探索興趣領域</span>"
 
         for label, val, total, color, tip in [
@@ -659,14 +665,10 @@ if st.session_state.current_page == "系統首頁":
                     st.markdown(f"<div style='display: flex; align-items: baseline; margin: 0 0 6px 0;'><span style='font-size: 1.8rem; font-weight: 900; color: {color}; line-height: 1;'>{val}</span><small style='font-size: 0.85rem; color: #999; margin-left: 5px;'>/ {total}</small>{tip}</div>", unsafe_allow_html=True)
                     st.progress(min(val/total, 1.0))
 
-    # ==========================================
-    # 🟥/🟦 下方雙欄區塊 (實體內容對齊法)
-    # ==========================================
     with st.container():
         st.markdown('<div id="bottom-marker"></div>', unsafe_allow_html=True)
         cl, cr = st.columns(2)
         
-        # --- 🔴 左下區塊：為您推薦的專屬課程 ---
         with cl:
             st.markdown("<h3 style='font-size: 1.3rem; color: #333; margin: 0 0 25px 0;'>🚀 為您推薦的專屬課程</h3>", unsafe_allow_html=True)
             recs = [
@@ -689,7 +691,6 @@ if st.session_state.current_page == "系統首頁":
                     """, unsafe_allow_html=True)
                     st.button("查看詳情", key=f"btn_hm_{i}", use_container_width=True, on_click=navigate_to, args=("詳細課程", None, c['name']))
         
-        # --- 🔵 右下區塊：全校熱門搶手課程 ---
         with cr:
             st.markdown("<h3 style='font-size: 1.3rem; color: #333; margin: 0 0 14px 0;'>🔥 全校熱門搶手課程</h3>", unsafe_allow_html=True)
             hots = [
@@ -713,6 +714,7 @@ if st.session_state.current_page == "系統首頁":
                     <div style="background: {h['c']}15; color: {h['c']}; padding: 5px 12px; border-radius: 20px; font-weight: 800; font-size: 0.85rem;">⏳ {h['q']}</div>
                 </div>
                 """, unsafe_allow_html=True)
+
 elif st.session_state.current_page == "視覺化介面":
     # ==========================================
     # 👑 [視覺化介面 CSS] 左側篩選(30%) + 右側圖表上下對切(70%)
@@ -723,8 +725,9 @@ elif st.session_state.current_page == "視覺化介面":
         html, body, [data-testid="stAppViewContainer"] {
             overflow: hidden !important;
         }
+        
         .block-container {
-            height: 94vh !important; 
+            height: 96vh !important; 
             max-width: 96% !important; 
             padding: 1.5rem 0 1rem 0 !important; 
             display: flex !important;
@@ -751,16 +754,15 @@ elif st.session_state.current_page == "視覺化介面":
             height: 100%; gap: 20px !important;
         }
 
-        /* --- 🟨 左側篩選面板 (把底色拔掉，交給 Python 端的 st.container 去畫卡片) --- */
+        /* --- 🟨 左側篩選面板 --- */
         [data-testid="column"]:nth-child(1) {
             height: 100%; overflow-y: auto; overflow-x: hidden;
             padding: 0px !important; 
         }
-        /* 針對左側新增的 container 畫出圓角白框 */
         [data-testid="column"]:nth-child(1) > [data-testid="stVerticalBlockBorderWrapper"] {
             background-color: #FDFCFB; border: 1px solid #EAE6E3;
             border-radius: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.02);
-            padding: 20px !important; height: 100%;
+            padding: 20px !important; height: 100%; 
         }
 
         /* --- 右側區塊總管 --- */
@@ -772,18 +774,18 @@ elif st.session_state.current_page == "視覺化介面":
             height: 100%; gap: 15px !important; display: flex; flex-direction: column;
         }
 
-        /* --- 🟪 右上：散點圖區塊 (佔比 50%) --- */
+        /* --- 🟪 右上：散點圖區塊 --- */
         div[data-testid="stVerticalBlockBorderWrapper"]:has(#zone-v-scatter) {
-            flex: 1 1 50%; min-height: 320px; display: flex; flex-direction: column;
-            padding: 15px !important; overflow: hidden;
+            flex: 1 1 50%; min-height: 320px; display: flex; flex-direction: column; 
+            padding: 15px !important; overflow: hidden; 
             border-radius: 20px !important;
             background-color: #FFFFFF;
         }
 
-        /* --- 🟥 右下：雷達圖與資訊區塊 (佔比 50%) --- */
+        /* --- 🟥 右下：趨勢圖與資訊區塊 --- */
         div[data-testid="stVerticalBlockBorderWrapper"]:has(#zone-v-radar) {
-            flex: 1 1 50%; min-height: 320px; display: flex; flex-direction: column;
-            padding: 15px 20px !important; overflow: hidden;
+            flex: 1 1 50%; min-height: 320px; display: flex; flex-direction: column; 
+            padding: 15px 20px !important; overflow: hidden; 
             border-radius: 20px !important;
             background-color: #FFFFFF;
         }
@@ -799,14 +801,13 @@ elif st.session_state.current_page == "視覺化介面":
 
     st.markdown("<h2 style='color: #333; font-weight: 800; margin-bottom: 5px; margin-top: -10px;'>📊 視覺化分析中心</h2>", unsafe_allow_html=True)
 
-    # 建立左右大分區：左(1) 右(2.5) 的比例最貼近你的草圖
     col_left_panel, col_right_panel = st.columns([1, 2.5])
 
     # ==========================================
-    # 🟨 左側：條件篩選面板 (全高度)
+    # 🟨 左側：條件篩選面板
     # ==========================================
     with col_left_panel:
-        with st.container(border=True): # ✨ 新增這個容器來製造專屬框框
+        with st.container(border=True): 
             st.markdown("<div id='zone-v-filter' style='position:absolute; top:-30px; left:0; width:1px; height:1px;'></div>", unsafe_allow_html=True)
             st.markdown("<div style='font-weight:bold; color:#555; margin-bottom:5px; font-size:1.1rem;'>🔍 全站課程搜尋</div>", unsafe_allow_html=True)
             search_term = st.text_input("搜尋關鍵字", key="search_term", placeholder="請輸入課程名稱或選課代號...", label_visibility="collapsed")
@@ -963,9 +964,8 @@ elif st.session_state.current_page == "視覺化介面":
             st.markdown("<div style='margin-top: 15px;'></div>", unsafe_allow_html=True) 
             st.button("🔄 重置條件", on_click=reset_all, use_container_width=True)
 
-
     # ==========================================
-    # 🟪/🟥 右側：圖表區 (上下對半)
+    # 🟪/🟥 右側：圖表區
     # ==========================================
     with col_right_panel:
         
@@ -994,12 +994,19 @@ elif st.session_state.current_page == "視覺化介面":
                 fig_scatter = px.scatter(filtered, x="難度", y="滿意度", hover_name="課程名稱", hover_data={"難度": True, "滿意度": True, "選課代號": True}, custom_data=["選課代號", "課程名稱"])
                 selected_idx = np.where(filtered["課程名稱"] == selected_course)[0].tolist() if selected_course not in ["請選擇...", "先選學期...", "查無結果..."] else None
                 fig_scatter.update_traces(selectedpoints=selected_idx, marker=dict(color='#D9534F', size=13, opacity=0.8, line=dict(width=1, color='white')))
-                fig_scatter.update_layout(xaxis_title="課程難易度", yaxis_title="滿意度", xaxis=dict(range=[0.5, 5.5], gridcolor='#EFEFEF', fixedrange=True), yaxis=dict(range=[0.5, 5.5], gridcolor='#EFEFEF', fixedrange=True), plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', height=280, margin=dict(l=20, r=20, t=30, b=10), clickmode='event+select', dragmode=False)
+                fig_scatter.update_layout(
+                    xaxis_title="課程難易度", yaxis_title="滿意度", 
+                    xaxis=dict(range=[0.5, 5.5], gridcolor='#EFEFEF', fixedrange=True), 
+                    yaxis=dict(range=[0.5, 5.5], gridcolor='#EFEFEF', fixedrange=True), 
+                    plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', 
+                    height=280, 
+                    margin=dict(l=20, r=20, t=30, b=10), clickmode='event+select', dragmode=False
+                )
                 st.plotly_chart(fig_scatter, use_container_width=True, on_select="rerun", selection_mode="points", config={'displayModeBar': False}, key="scatter_chart")
 
         target_course_name = selected_course if selected_course not in ["請選擇...", "先選學期...", "查無結果..."] else None
 
-        # --- 🟥 右下區塊：綜合資訊與雷達圖 ---
+        # --- 🟥 右下區塊：綜合資訊與歷年修課趨勢 ---
         with st.container(border=True):
             st.markdown("<div id='zone-v-radar' style='position:absolute; top:-10px; left:0; width:1px; height:1px;'></div>", unsafe_allow_html=True)
             col_info, col_radar = st.columns([1.1, 1])
@@ -1081,26 +1088,34 @@ elif st.session_state.current_page == "視覺化介面":
                         st.button("➕ 模擬排課", key="vis_to_sim_empty", use_container_width=True, disabled=True)
 
             with col_radar:
-                st.markdown("<div style='font-weight:bold; color:#555; text-align:center; font-size:1rem; margin-bottom: -15px;'>🌟 多維度屬性分析</div>", unsafe_allow_html=True)
-                values_closed = radar_data.get(course_info['選課代號'] if target_course_name else None, [0, 0, 0, 0, 0]) + radar_data.get(course_info['選課代號'] if target_course_name else None, [0, 0, 0, 0, 0])[:1] if target_course_name else [0, 0, 0, 0, 0, 0]
-                fill_color = 'rgba(135, 206, 250, 0.6)' if target_course_name else 'rgba(200, 200, 200, 0.2)'
-                line_color = '#5BC0DE' if target_course_name else '#cccccc'
-                fig_radar = go.Figure()
-                fig_radar.add_trace(go.Scatterpolar(r=values_closed, theta=categories + [categories[0]], fill='toself', fillcolor=fill_color, line=dict(color=line_color), marker=dict(size=1)))
+                st.markdown("<div style='font-weight:bold; color:#555; text-align:center; font-size:1rem; margin-bottom: -5px;'>📈 歷年修課趨勢</div>", unsafe_allow_html=True)
                 
-                fig_radar.update_layout(
-                    polar=dict(
-                        bgcolor='rgba(0,0,0,0)', 
-                        radialaxis=dict(range=[0, 5], showticklabels=False), 
-                        angularaxis=dict(tickfont=dict(size=11, color='#555' if target_course_name else '#aaa'))
-                    ), 
-                    showlegend=False, 
-                    height=250, 
-                    paper_bgcolor='rgba(0,0,0,0)', 
-                    plot_bgcolor='rgba(0,0,0,0)', 
-                    margin=dict(l=30, r=30, t=30, b=30) 
-                )
-                st.plotly_chart(fig_radar, use_container_width=True, theme=None, config={'staticPlot': True})
+                if target_course_name:
+                    trend_df = get_fixed_trend_data(str(course_info['選課代號']))
+                    fig_trend = go.Figure()
+                    fig_trend.add_trace(go.Scatter(x=trend_df.Year, y=trend_df.AvgScore, name='平均成績', line=dict(color='#C85A5A', width=2), yaxis='y1')) 
+                    fig_trend.add_trace(go.Scatter(x=trend_df.Year, y=trend_df.Students, name='修課人數', line=dict(color='#4A7C59', width=2), yaxis='y2')) 
+                    
+                    fig_trend.update_layout(
+                        margin=dict(l=30, r=30, t=10, b=10), 
+                        height=240, 
+                        paper_bgcolor='rgba(0,0,0,0)', 
+                        plot_bgcolor='rgba(0,0,0,0)',
+                        legend=dict(orientation="h", y=1.2, x=0.5, xanchor="center", font=dict(size=10)),
+                        xaxis=dict(tickfont=dict(size=10), gridcolor='#EEE'),
+                        yaxis=dict(range=[0, 100], tickfont=dict(size=10)),
+                        yaxis2=dict(overlaying='y', side='right', range=[0, 150], tickfont=dict(size=10)),
+                        dragmode=False
+                    )
+                    st.plotly_chart(fig_trend, use_container_width=True, theme=None, config={'staticPlot': True})
+                else:
+                    fig_trend_empty = go.Figure().update_layout(
+                        height=240, 
+                        paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', 
+                        xaxis=dict(visible=False), yaxis=dict(visible=False), 
+                        annotations=[dict(text="等待選擇課程...", x=0.5, y=0.5, showarrow=False, font=dict(color="#aaa"))]
+                    )
+                    st.plotly_chart(fig_trend_empty, use_container_width=True, theme=None, config={'staticPlot': True})
 
 elif st.session_state.current_page == "詳細課程":
     # ==========================================
@@ -1108,7 +1123,6 @@ elif st.session_state.current_page == "詳細課程":
     # ==========================================
     st.markdown("""
     <style>
-        /* 1. 鎖定全螢幕高度 */
         html, body, [data-testid="stAppViewContainer"] {
             overflow: hidden !important;
         }
@@ -1120,55 +1134,45 @@ elif st.session_state.current_page == "詳細課程":
             flex-direction: column !important;
             overflow: hidden !important;
         }
-
-        /* 2. 佈局容器：頂部(固定)-中間(延展)-底部(固定) */
         .main-content-area {
             flex: 1 1 auto;
             display: flex;
             gap: 20px;
-            min-height: 0; /* 關鍵：允許子元素縮小以符合 Flex */
+            min-height: 0; 
             margin-bottom: 10px;
         }
-
-        /* 紅色區塊：詳細資訊 (左側) */
         .left-info-col {
-            flex: 1; /* 一半寬度 */
+            flex: 1; 
             display: flex;
             flex-direction: column;
             background-color: #FFFFFF;
             border: 1px solid #EAE6E3;
             border-radius: 20px;
             padding: 20px;
-            overflow: hidden; /* 由內層控制滾動 */
+            overflow: hidden; 
         }
         .scrollable-info {
             flex: 1;
             overflow-y: auto;
             padding-right: 10px;
         }
-
-        /* 右側欄：黃色(圖表) + 紫色(留言) */
         .right-dash-col {
-            flex: 1; /* 一半寬度 */
+            flex: 1; 
             display: flex;
             flex-direction: column;
             gap: 15px;
             overflow: hidden;
         }
-
-        /* 黃色區塊：折線圖 (右上) */
         .top-chart-box {
-            flex: 0 0 45%; /* 固定比例 */
+            flex: 0 0 45%; 
             background-color: #FFFFFF;
             border: 1px solid #EAE6E3;
             border-radius: 20px;
             padding: 15px;
             overflow: hidden;
         }
-
-        /* 紫色區塊：留言板 (右下) */
         .bottom-comment-box {
-            flex: 1; /* 填滿剩餘高度 */
+            flex: 1; 
             background-color: #FFFFFF;
             border: 1px solid #EAE6E3;
             border-radius: 20px;
@@ -1183,22 +1187,17 @@ elif st.session_state.current_page == "詳細課程":
             margin-bottom: 10px;
             padding-right: 5px;
         }
-
-        /* 底部按鈕列 */
         .fixed-footer {
             flex: 0 0 auto;
             background: transparent;
             padding: 10px 0;
             border-top: 1px solid #DCD5CE;
         }
-
-        /* 美化滾動軸 */
         ::-webkit-scrollbar { width: 5px; }
         ::-webkit-scrollbar-thumb { background-color: #E2DCD5; border-radius: 10px; }
     </style>
     """, unsafe_allow_html=True)
 
-    # --- 頂部標題與返回 ---
     col_header_left, col_header_right = st.columns([5, 1])
     with col_header_left:
         st.markdown("<h2 style='color: #333; font-weight: 800; margin: 0;'>📖 課程詳細資訊</h2>", unsafe_allow_html=True)
@@ -1225,17 +1224,14 @@ elif st.session_state.current_page == "詳細課程":
         if current_code not in st.session_state.comments_db: st.session_state.comments_db[current_code] = []
         current_comments = st.session_state.comments_db[current_code]
 
-        # --- 中間主戰場 (紅/黃/紫) ---
         main_col_left, main_col_right = st.columns(2)
 
-        # 🔴 紅色區塊 (左側)
         with main_col_left:
             with st.container(border=True):
                 st.markdown("<div id='zone-d-info'></div>", unsafe_allow_html=True)
                 st.markdown(f"#### 📌 課程完整資訊")
                 st.markdown(f"<div style='background-color: #E2DCD5; padding: 4px 12px; border-radius: 8px; display: inline-block; margin-bottom: 15px; font-weight: bold; color: #222; font-size: 14px;'>{selected_uid}</div>", unsafe_allow_html=True)
                 
-                # 開啟內部滾動
                 with st.container(height=520, border=False):
                     target_cols = ['選課代號', '開課班級', '科目簡稱', '學分數', '學分', '必選修', '上課時間', 'EMI註記', '授課方式', '授課語言', '系所', '課程描述_中', '課程描述_英']
                     for col_name in target_cols:
@@ -1249,29 +1245,36 @@ elif st.session_state.current_page == "詳細課程":
                         else:
                             st.markdown(f"<div style='margin-bottom: 8px;'><span style='font-weight: 600; color: #555;'>{col_name}：</span> <span style='color: #111; font-weight: 800;'>{val}</span></div>", unsafe_allow_html=True)
 
-        # 右側欄 (黃/紫)
         with main_col_right:
-            # 🟡 黃色區塊 (右上 - 圖表)
             with st.container(border=True):
-                st.markdown("#### 📈 歷年修課趨勢")
-                trend_df = get_fixed_trend_data(current_code)
-                fig = go.Figure()
-                fig.add_trace(go.Scatter(x=trend_df.Year, y=trend_df.AvgScore, name='平均成績', line=dict(color='#C85A5A', width=3), yaxis='y1')) 
-                fig.add_trace(go.Scatter(x=trend_df.Year, y=trend_df.Students, name='修課人數', line=dict(color='#4A7C59', width=3), yaxis='y2')) 
-                fig.update_layout(
-                    margin=dict(l=40, r=40, t=10, b=10), height=200, paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
-                    legend=dict(orientation="h", y=1.2, font=dict(size=10)),
+                # ✨ 修改：將原本的折線圖替換為「歷年成績分布」長條圖，並加入難度連動參數
+                st.markdown("#### 📊 去年修課成績分佈")
+                dist_df = get_fixed_grade_dist_data(current_code, course_data.get('難度', 3.0))
+                
+                fig_dist = go.Figure(data=[
+                    go.Bar(
+                        x=dist_df['Range'], 
+                        y=dist_df['Count'], 
+                        name='學期成績',
+                        marker_color='rgba(234, 242, 248, 0.8)', 
+                        marker_line_color='rgba(133, 172, 203, 1)', 
+                        marker_line_width=2
+                    )
+                ])
+                fig_dist.update_layout(
+                    margin=dict(l=40, r=40, t=30, b=30), 
+                    height=200, 
+                    paper_bgcolor='rgba(0,0,0,0)', 
+                    plot_bgcolor='rgba(0,0,0,0)',
+                    legend=dict(orientation="h", y=1.2, x=0.5, xanchor="center", font=dict(size=11)),
                     xaxis=dict(tickfont=dict(size=10), gridcolor='#EEE'),
-                    yaxis=dict(range=[0, 100], tickfont=dict(size=10)),
-                    yaxis2=dict(overlaying='y', side='right', range=[0, 150], tickfont=dict(size=10)),
+                    yaxis=dict(tickfont=dict(size=10), gridcolor='#EEE', title="修課人數"),
                     dragmode=False
                 )
-                st.plotly_chart(fig, use_container_width=True, config={'staticPlot': True})
+                st.plotly_chart(fig_dist, use_container_width=True, config={'staticPlot': True})
 
-            # 🟣 紫色區塊 (右下 - 留言板)
             with st.container(border=True):
                 st.markdown("#### 💬 討論區")
-                # 留言內容滾動區
                 with st.container(height=200, border=False):
                     if not current_comments: 
                         st.caption("目前尚無留言...")
@@ -1279,7 +1282,6 @@ elif st.session_state.current_page == "詳細課程":
                         for comment in current_comments:
                             st.markdown(f'''<div style="background-color: #F8F6F1; padding: 10px; border-radius: 8px; margin-bottom: 8px; border-left: 4px solid #A3968C;"><span style="font-weight: 800; font-size: 13px;">{comment['user']}</span><br><span style="font-size: 13px; color: #444;">{comment['content']}</span></div>''', unsafe_allow_html=True)
                 
-                # 輸入區
                 with st.form(key='comment_form', clear_on_submit=True):
                     c_input, c_btn = st.columns([4, 1])
                     new_comment = c_input.text_input("輸入心得...", label_visibility="collapsed")
@@ -1287,15 +1289,13 @@ elif st.session_state.current_page == "詳細課程":
                         st.session_state.comments_db[current_code].append({"user": st.session_state.get("name", "王小明"), "content": new_comment})
                         st.rerun()
 
-        # --- 底部固定功能紐 (藍色區塊) ---
-        st.write("") # 增加一點呼吸感
+        st.write("") 
         col_f1, col_f2, col_f3 = st.columns(3)
         with col_f1:
             if st.button("❤️ 加入收藏", key="btn_fav_detail", use_container_width=True):
                 if any(c['id'] == current_code for c in st.session_state.my_courses): 
                     st.toast("已在收藏中！", icon="⚠️")
                 else:
-                    # ✨ [修復魔法] 將時間正規表達式解析邏輯帶入詳細課程的加入收藏按鈕中
                     c_type_raw = str(course_data.get('必選修', '選修')).upper()
                     c_type = '必修' if c_type_raw == 'M' else '選修'
                     try: credits = int(float(course_data.get('學分', course_data.get('學分數', 2))))
@@ -1345,7 +1345,6 @@ elif st.session_state.current_page == "我的收藏":
             display: flex; flex-direction: column; height: 100%;
         }
 
-        /* --- 原本的課表與卡片極致壓縮 CSS (完全保留) --- */
         .timetable-full {
             width: 100%;
             height: 450px !important; 
@@ -1384,36 +1383,30 @@ elif st.session_state.current_page == "我的收藏":
         }
 
         /* --- 2. 內層解放 (Local Scroll)：取代原本的暴力隱藏 --- */
-        /* 針對候選清單與課表的內部容器，開啟獨立滾動 */
         [data-testid="stVerticalBlockBorderWrapper"]:has(.timetable-full) > div > div,
         [data-testid="stVerticalBlockBorderWrapper"]:has(.fav-card) > div > div {
-            overflow-y: auto !important; /* 解除封印，允許內部滾動 */
-            overscroll-behavior: contain !important; /* 避免內部滾動到底時，意外牽動外層 */
-            padding-right: 5px; /* 留一點空間給滾動條，避免遮擋文字 */
+            overflow-y: auto !important; 
+            overscroll-behavior: contain !important; 
+            padding-right: 5px; 
         }
 
-        /* 美化滾動軸 (讓它看起來更精緻，不破壞你原本的設計感) */
         ::-webkit-scrollbar { width: 5px; }
         ::-webkit-scrollbar-thumb { background-color: #E2DCD5; border-radius: 10px; }
 
-        /* 隱藏原生容器多餘的間距 */
         .block-container [data-testid="stVerticalBlock"] > div { padding: 0 !important; }
     </style>
     """, unsafe_allow_html=True)
 
-    # ✨ 標題保留
     st.markdown("<h2 style='color: #333; font-weight: 800; margin-bottom: 20px;'>❤️ 我的收藏與模擬排課</h2>", unsafe_allow_html=True)
 
     all_favorites = st.session_state.my_courses
     enrolled_courses = [c for c in all_favorites if c["enrolled"]]
 
-    # 🚀 修復 KeyError：支援全時段陣列
     days = ["一", "二", "三", "四", "五", "六", "日"]
     all_periods = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "A", "B", "C", "D"] 
     schedule_matrix = {d: {p: [] for p in all_periods} for d in days}
     conflicts = []
     
-    # 將已選課程填入矩陣
     for course in enrolled_courses:
         for t in course["time"]:
             if len(t) >= 2:
@@ -1422,12 +1415,8 @@ elif st.session_state.current_page == "我的收藏":
                 if d_key in schedule_matrix and p_key in schedule_matrix[d_key]: 
                     schedule_matrix[d_key][p_key].append(course)
 
-    # 建立左右 1:1 分區
     col_l, col_r = st.columns(2)
 
-    # ==========================================
-    # 🔴 左側：候選清單 
-    # ==========================================
     with col_l:
         with st.container(height=650, border=True): 
             c_header_l, c_header_r = st.columns([3, 1])
@@ -1444,7 +1433,6 @@ elif st.session_state.current_page == "我的收藏":
                 for idx, course in enumerate(all_favorites):
                     is_enrolled = course["enrolled"]
                     
-                    # 🚀 安全的衝堂檢查邏輯
                     is_conf = False
                     if is_enrolled:
                         for t in course["time"]:
@@ -1457,7 +1445,6 @@ elif st.session_state.current_page == "我的收藏":
                     card_style = "fav-enrolled" if is_enrolled else ""
                     status_ico = "⛔" if is_conf else ("✅" if is_enrolled else "⚪")
                     
-                    # ✨ 修改：時間翻譯機！將 ['一6', '一7', '一8'] 轉換為 (一) 6-8
                     formatted_time = "未定"
                     if course['time']:
                         day_dict = defaultdict(list)
@@ -1476,7 +1463,6 @@ elif st.session_state.current_page == "我的收藏":
                                 time_parts.append(f"({d}) {','.join(map(str, periods))}")
                         formatted_time = " ".join(time_parts)
 
-                    # ✨ 修改：將代碼與「翻譯後的時間」合併成單行
                     ci, ca, cd = st.columns([3.5, 1.2, 0.6])
                     ci.markdown(f"""
                         <div class="fav-card {card_style}">
@@ -1497,12 +1483,8 @@ elif st.session_state.current_page == "我的收藏":
                     if cd.button("🗑️", key=f"x_{idx}", use_container_width=True):
                         st.session_state.my_courses.pop(idx); st.rerun()
 
-    # ==========================================
-    # 🟡 右側：預覽課表 
-    # ==========================================
     with col_r:
         with st.container(height=650, border=True):
-            # 1. 衝突提醒
             for d in days:
                 for p in all_periods:
                     cells = schedule_matrix[d][p]
@@ -1517,16 +1499,13 @@ elif st.session_state.current_page == "我的收藏":
 
             st.markdown("<h4 style='text-align: center; margin: 5px 0 10px 0;'>📅 預覽課表</h4>", unsafe_allow_html=True)
 
-            # 🚀 動態決定要顯示的節次 (至少 1~10，有晚課才往下延伸)
             display_periods = [p for p in all_periods if p in ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10"] or any(schedule_matrix[d][p] for d in days)]
             
-            # 🚀 動態決定要顯示的天數 (有六日才顯示週末)
             display_days = ["一", "二", "三", "四", "五"]
             for d in ["六", "日"]:
                 if any(schedule_matrix[d][p] for p in display_periods):
                     display_days.append(d)
 
-            # 2. 繪製自動延展表格
             table_html = f"<table class='timetable-full'><tr><th style='width:30px;'></th>" + "".join([f"<th>週{d}</th>" for d in display_days]) + "</tr>"
             for p in display_periods:
                 table_html += f"<tr><td style='font-weight:bold; background:#F8F6F4;'>{p}</td>"
@@ -1543,6 +1522,7 @@ elif st.session_state.current_page == "我的收藏":
             table_html += "</table>"
             
             st.markdown(table_html, unsafe_allow_html=True)
+
 elif st.session_state.current_page == "個人設定":
     st.markdown("<h2 style='margin-bottom: 20px; color: #333; font-weight: 800;'>👤 個人設定</h2>", unsafe_allow_html=True)
 
