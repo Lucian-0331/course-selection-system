@@ -187,7 +187,7 @@ def load_data():
         df = df.drop_duplicates(subset=['選課代號', '學期']).reset_index(drop=True)
         
         np.random.seed(42)
-        df['滿意度'] = np.random.uniform(2.5, 5.0, size=len(df)).round(1)
+        df['教學參與性'] = np.random.uniform(2.5, 5.0, size=len(df)).round(1)
         df['難度'] = np.random.uniform(2.0, 5.0, size=len(df)).round(1)
         
         radar_dict = {}
@@ -205,50 +205,113 @@ def get_fixed_trend_data(course_code):
     random.seed(course_code)
     return pd.DataFrame({"Year": ['109', '110', '111', '112', '113'], "Students": [random.randint(40, 120) for _ in range(5)], "AvgScore": [random.randint(65, 95) for _ in range(5)]})
 
-# ✨ 新增：難度連動的真實成績分布圖演算法
 @st.cache_data
 def get_fixed_grade_dist_data(course_code, difficulty):
     random.seed(course_code)
     bins = ["0-9", "10-19", "20-29", "30-39", "40-49", "50-59", "60-69", "70-79", "80-89", "90-100"]
     
-    # 1. 根據傳入的「課程難度」決定成績模型 (Profile)
     if difficulty >= 4.5:
-        profile = random.choice(["hard", "bimodal"]) # 極硬課：死當多或M型雙峰
+        profile = random.choice(["hard", "bimodal"]) 
     elif difficulty >= 3.5:
-        profile = random.choice(["strict_curve", "hard"]) # 偏硬課：嚴格常態或偏難
+        profile = random.choice(["strict_curve", "hard"]) 
     elif difficulty >= 2.5:
-        profile = "normal" # 適中：一般常態分佈
+        profile = "normal" 
     else:
-        profile = random.choice(["easy", "super_sweet"]) # 甜課：偏易或大放送
+        profile = random.choice(["easy", "super_sweet"]) 
         
-    # 2. 設定不同模型的權重 (Weights)
     if profile == "super_sweet":
-        weights = [0, 0, 0, 0, 0, 0, 5, 15, 30, 50] # 90分以上大放送
+        weights = [0, 0, 0, 0, 0, 0, 5, 15, 30, 50] 
     elif profile == "easy":
-        weights = [0, 0, 0, 0, 1, 2, 8, 20, 45, 24] # 80-89分最多
+        weights = [0, 0, 0, 0, 1, 2, 8, 20, 45, 24] 
     elif profile == "normal":
-        weights = [0, 0, 0, 1, 2, 5, 15, 30, 35, 12] # 高峰在70-85
+        weights = [0, 0, 0, 1, 2, 5, 15, 30, 35, 12] 
     elif profile == "strict_curve":
-        weights = [1, 2, 5, 10, 15, 20, 25, 15, 5, 2] # 嚴格控制及格率，高峰60-70
+        weights = [1, 2, 5, 10, 15, 20, 25, 15, 5, 2] 
     elif profile == "hard":
-        weights = [15, 5, 2, 5, 2, 25, 20, 15, 8, 3] # 死當多(0-9)，同情分多(60-69)
-    else: # bimodal (雙峰分佈)
-        weights = [5, 15, 5, 2, 2, 5, 10, 20, 25, 11] # 兩極化
+        weights = [15, 5, 2, 5, 2, 25, 20, 15, 8, 3] 
+    else: 
+        weights = [5, 15, 5, 2, 2, 5, 10, 20, 25, 11] 
         
     student_count = random.randint(45, 120)
     dist = []
     
-    # 3. 注入真實感白噪音 (±20% 隨機震盪)
     for w in weights:
         noise = random.uniform(0.8, 1.2)
         dist.append(w * noise)
         
-    # 4. 正規化與人數還原
     total = sum(dist)
     if total > 0:
         dist = [int(round((val/total) * student_count)) for val in dist]
     
     return pd.DataFrame({"Range": bins, "Count": dist})
+
+# ✨ 新增：智慧假留言生成器 (連動課程指標 DNA) - 全純文字版
+def generate_fake_comments(course_code, difficulty, engagement):
+    random.seed(course_code)
+    
+    is_hard = difficulty >= 3.5
+    is_easy = difficulty <= 2.5
+    is_high_eng = engagement >= 3.5
+    is_low_eng = engagement <= 2.5
+    
+    info_pool = []
+    if is_hard:
+        info_pool.extend([
+            "這門課真的硬，期中考都是計算題，建議一定要把老師發的練習題算三遍以上。",
+            "期末專題要跑程式模擬，雖然很肝，但做完會覺得自己變強了很多。",
+            "建議微積分底子要好再來修，平時作業花的時間比想像中多很多！"
+        ])
+    elif is_easy:
+        info_pool.extend([
+            "算是系上的福利課，期末只要交一份個人心得報告，沒有考試。",
+            "重點有讀就會過，期中考都是選擇題跟簡單的問答，很好拿分。",
+            "老師是活菩薩，只要出席率有到，基本上有交作業都會順利過關。"
+        ])
+    else:
+        info_pool.extend([
+            "這門課不看報告，全看兩次大考。考前記得去圖書館刷一下歷屆考古題。",
+            "中規中矩的課，期中考和期末報告各佔一半，只要跟著進度走就好。",
+            "評分方式很平均，有平時測驗也有報告，不會一試定生死。"
+        ])
+        
+    vibe_pool = []
+    if is_high_eng:
+        vibe_pool.extend([
+            "老師超幽默，會舉很多工廠實作的例子！",
+            "老師很喜歡點人回答問題，上課不能滑手機。",
+            "會有很多小組討論的環節，氣氛很熱絡。",
+            "上課節奏很快，互動超多，完全不會想睡覺！"
+        ])
+    elif is_low_eng:
+        vibe_pool.extend([
+            "大班演講課感很重，老師基本上一直唸投影片。",
+            "很適合在後面做自己的事，不會管你在幹嘛。",
+            "上課比較沈悶一點，下課才有機會問問題。",
+            "就是典型的靜態理論課，內容有點乾。"
+        ])
+    else:
+        vibe_pool.extend([
+            "老師講得蠻清楚的，投影片做得很用心。",
+            "上課氣氛算輕鬆，偶爾會放一些補充影片。",
+            "助教人很好，有問題去實驗室問都會回。"
+        ])
+        
+    names = ["工工三甲小神童", "期末被當專業戶", "逢甲路過小精靈", "學分小偷", "準時下課推廣大使", "坐在第一排的學霸", "圖書館地縛靈", "大四老屁股"]
+    
+    num_info = random.randint(2, 3)
+    num_vibe = random.randint(3, 4)
+    
+    selected_info = random.sample(info_pool, min(num_info, len(info_pool)))
+    selected_vibe = random.sample(vibe_pool, min(num_vibe, len(vibe_pool)))
+    
+    all_selected = selected_info + selected_vibe
+    random.shuffle(all_selected) 
+    
+    comments = []
+    for content in all_selected:
+        comments.append({"user": random.choice(names), "content": content})
+        
+    return comments
 
 # ==========================================
 # 3. 初始化全局記憶體
@@ -991,11 +1054,11 @@ elif st.session_state.current_page == "視覺化介面":
                 )
                 st.plotly_chart(fig_scatter, use_container_width=True, key="empty_chart", config={'displayModeBar': False})
             else:
-                fig_scatter = px.scatter(filtered, x="難度", y="滿意度", hover_name="課程名稱", hover_data={"難度": True, "滿意度": True, "選課代號": True}, custom_data=["選課代號", "課程名稱"])
+                fig_scatter = px.scatter(filtered, x="難度", y="教學參與性", hover_name="課程名稱", hover_data={"難度": True, "教學參與性": True, "選課代號": True}, custom_data=["選課代號", "課程名稱"])
                 selected_idx = np.where(filtered["課程名稱"] == selected_course)[0].tolist() if selected_course not in ["請選擇...", "先選學期...", "查無結果..."] else None
                 fig_scatter.update_traces(selectedpoints=selected_idx, marker=dict(color='#D9534F', size=13, opacity=0.8, line=dict(width=1, color='white')))
                 fig_scatter.update_layout(
-                    xaxis_title="課程難易度", yaxis_title="滿意度", 
+                    xaxis_title="課程難易度", yaxis_title="教學參與性", 
                     xaxis=dict(range=[0.5, 5.5], gridcolor='#EFEFEF', fixedrange=True), 
                     yaxis=dict(range=[0.5, 5.5], gridcolor='#EFEFEF', fixedrange=True), 
                     plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', 
@@ -1014,7 +1077,7 @@ elif st.session_state.current_page == "視覺化介面":
             with col_info:
                 if target_course_name:
                     course_info = data[data["課程名稱"] == target_course_name].iloc[0]
-                    sat_text = "高滿意" if course_info['滿意度'] >= 4 else ("中滿意" if course_info['滿意度'] >= 3 else "低滿意")
+                    eng_text = "高參與" if course_info['教學參與性'] >= 4 else ("中參與" if course_info['教學參與性'] >= 3 else "低參與")
                     diff_text = "高難度" if course_info['難度'] >= 4 else ("中難度" if course_info['難度'] >= 2.5 else "低難度")
                     
                     col_title, col_btn_detail = st.columns([5, 3])
@@ -1030,9 +1093,9 @@ elif st.session_state.current_page == "視覺化介面":
                             <p style="margin: 0; font-size: 14px; color: #333; font-weight: 700;">授課教師：依校方系統公告</p>
                         </div>
                         <div style="background-color: #EFECE9; border-radius: 12px; padding: 10px 15px; margin-bottom: 15px;">
-                            <p style="margin: 3px 0; font-size: 15px; color: #555;">🔥 綜合滿意度： <strong>{course_info['滿意度']}/5</strong></p>
+                            <p style="margin: 3px 0; font-size: 15px; color: #555;">🔥 教學參與性： <strong>{course_info['教學參與性']}/5</strong></p>
                             <p style="margin: 3px 0; font-size: 15px; color: #555;">💦 課程難易度： <strong>{course_info['難度']}/5</strong></p>
-                            <p style="margin: 3px 0 0 0; font-size: 13px; color: #777;">(位於：{sat_text}/{diff_text}區)</p>
+                            <p style="margin: 3px 0 0 0; font-size: 13px; color: #777;">(位於：{eng_text}/{diff_text}區)</p>
                         </div>
                     """, unsafe_allow_html=True)
                     
@@ -1077,7 +1140,7 @@ elif st.session_state.current_page == "視覺化介面":
                             <p style="margin: 0; font-size: 14px; color: #aaa; font-weight: 700;">授課教師：---</p>
                         </div>
                         <div style="background-color: #F5F5F5; border-radius: 12px; padding: 10px 15px; margin-bottom: 15px;">
-                            <p style="margin: 3px 0; font-size: 15px; color: #aaa;">🔥 綜合滿意度： - / 5</p><p style="margin: 3px 0; font-size: 15px; color: #aaa;">💦 課程難易度： - / 5</p><p style="margin: 3px 0 0 0; font-size: 13px; color: #aaa;">(位於：---)</p>
+                            <p style="margin: 3px 0; font-size: 15px; color: #aaa;">🔥 教學參與性： - / 5</p><p style="margin: 3px 0; font-size: 15px; color: #aaa;">💦 課程難易度： - / 5</p><p style="margin: 3px 0 0 0; font-size: 13px; color: #aaa;">(位於：---)</p>
                         </div>
                     """, unsafe_allow_html=True)
                     
@@ -1221,7 +1284,10 @@ elif st.session_state.current_page == "詳細課程":
         sem_str = str(course_data.get('學期', '未知'))
         name_str = str(course_data.get('課程名稱', target_name))
         selected_uid = f"[{year_str}-{sem_str}] [{current_code}] {name_str}"
-        if current_code not in st.session_state.comments_db: st.session_state.comments_db[current_code] = []
+        
+        # ✨ 智慧載入生成假留言
+        if current_code not in st.session_state.comments_db: 
+            st.session_state.comments_db[current_code] = generate_fake_comments(current_code, course_data.get('難度', 3.0), course_data.get('教學參與性', 3.0))
         current_comments = st.session_state.comments_db[current_code]
 
         main_col_left, main_col_right = st.columns(2)
@@ -1247,7 +1313,6 @@ elif st.session_state.current_page == "詳細課程":
 
         with main_col_right:
             with st.container(border=True):
-                # ✨ 修改：將原本的折線圖替換為「歷年成績分布」長條圖，並加入難度連動參數
                 st.markdown("#### 📊 去年修課成績分佈")
                 dist_df = get_fixed_grade_dist_data(current_code, course_data.get('難度', 3.0))
                 
