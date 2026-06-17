@@ -59,37 +59,34 @@ st.markdown("""
     [data-testid="stSidebar"] { background-color: #F8F6F1; border-right: 1px solid #D4CCC5; }
     header { background-color: transparent !important; }
     
+    /* 統一容器外框：去掉邊距造成的凹凸感 */
     [data-testid="stVerticalBlockBorderWrapper"] {
-        background-color: #FFFFFF; border-radius: 20px; border: none;
-        box-shadow: 0px 4px 15px rgba(0,0,0,0.05); padding: 20px; margin-bottom: 20px;
-        transition: transform 0.2s ease, box-shadow 0.2s ease;
-    }
-    [data-testid="stVerticalBlockBorderWrapper"]:hover {
-        transform: translateY(-2px); box-shadow: 0px 10px 24px rgba(160, 150, 140, 0.15);
+        background-color: #FFFFFF; border-radius: 15px; border: none;
+        box-shadow: 0px 4px 15px rgba(0,0,0,0.05); padding: 15px !important; margin-bottom: 0px;
     }
     
     h1, h2, h3, h4 { color: #333333 !important; font-weight: 800 !important; font-family: 'sans-serif'; }
     p, span, label { color: #555555 !important; font-family: 'sans-serif'; }
     
-    .stTextInput input, .stTextArea textarea, .stSelectbox > div > div { 
-        background-color: #F8F6F4 !important; color: #333333 !important; 
-        border-radius: 10px !important; border: 1px solid #EAE6E3 !important; 
-    }
-
-    .stButton>button, .stFormSubmitButton>button, [data-testid="stLinkButton"]>a { 
-        width: 100%; border-radius: 20px; font-weight: 800;                        
+    /* 滾動條美化 */
+    ::-webkit-scrollbar { width: 5px; }
+    ::-webkit-scrollbar-thumb { background-color: #E2DCD5; border-radius: 10px; }
+    
+    /* 下拉選單美化 */
+    .stSelectbox > div > div { background-color: #FDFCFB !important; border-radius: 10px !important; }
+    
+    /* 全局按鈕基礎美化 */
+    .stButton>button { 
+        border-radius: 20px; font-weight: 800; height: 40px !important; 
         background-color: #EFEBE8 !important; border: 1px solid #DCD5CE !important;  
-        color: #333333 !important; letter-spacing: 1px; transition: all 0.3s ease; 
-        box-shadow: 0 2px 5px rgba(0,0,0,0.04); height: 45px !important;
-        text-decoration: none !important; display: inline-flex; align-items: center; justify-content: center;
+        color: #333333 !important; transition: all 0.3s ease; 
     }
-    .stButton>button:hover, .stFormSubmitButton>button:hover, [data-testid="stLinkButton"]>a:hover { 
+    .stButton>button:hover { 
         background-color: #E4DCD3 !important; border-color: #D2C8BE !important;
-        color: #111111 !important; box-shadow: 0 4px 12px rgba(180, 170, 160, 0.3); 
         transform: translateY(-2px);
     }
     
-    /* --- 替換這段側邊欄按鈕樣式 --- */
+    /* 🚨 側邊欄專屬按鈕樣式 (還原保留) 🚨 */
     [data-testid="stSidebar"] .stButton>button {
         background-color: transparent !important; 
         border: none !important; 
@@ -102,73 +99,18 @@ st.markdown("""
         margin-bottom: 8px !important; 
         display: flex !important;      
         align-items: center !important;
-        gap: 12px !important;          
+        gap: 12px !important;
+        border-radius: 10px !important; /* 蓋掉膠囊形狀 */
     }
     [data-testid="stSidebar"] .stButton>button:hover { 
         background-color: #EAE3DC !important; 
         transform: translateY(0px) !important; 
     }
-
-    .stProgress > div > div > div > div { background-color: #A3968C; }
-
-    .tag { display: inline-block; background-color: #F0EBE6; color: #555555; padding: 4px 10px; border-radius: 8px; font-size: 0.85rem; font-weight: 600; margin-right: 8px; margin-top: 8px; }
-    .tag-match { background-color: #4A7C59; color: white; }
-    .tag-hot { background-color: #C85A5A; color: white; }
-
-    .timetable { width: 100%; border-collapse: collapse; text-align: center; font-family: sans-serif; font-size: 14px; table-layout: fixed; }
-    .timetable th, .timetable td { border: 2px solid #EAE6E3; padding: 6px 4px; width: 16%; height: 75px; vertical-align: middle; word-wrap: break-word; overflow: hidden; }
-    .timetable th { background-color: #F8F6F4; font-weight: 800; color: #555; border-radius: 5px; height: auto; padding: 10px 5px;}
-    .timetable td { color: #888; }
-    .timetable td.filled { background-color: #DCD7D4; font-weight: 900; color: #222; border-radius: 8px; font-size: 12px !important; line-height: 1.3; }
-    .timetable td.conflict { background-color: #FADBD8; color: #C0392B; font-weight: 900; border: 2px solid #E74C3C; border-radius: 8px; font-size: 11px !important; line-height: 1.2; }
-    .stats-card { background-color: #F8F6F4; padding: 15px; border-radius: 15px; border: 1px solid #EAE6E3; margin-bottom: 10px; }
 </style>
 """, unsafe_allow_html=True)
 
 # ==========================================
-# 🌟 實驗行為追蹤資料回傳處理
-# ==========================================
-def process_tracker_data():
-    payload = st.session_state.tracker_bridge
-    if not payload or str(payload).strip() == "": 
-        return
-        
-    try:
-        parsed = json.loads(payload)
-        payload_id = str(parsed.get("id"))
-        
-        if "processed_payloads" not in st.session_state:
-            st.session_state.processed_payloads = set()
-            
-        if payload_id in st.session_state.processed_payloads:
-            st.session_state.tracker_bridge = "" 
-            return 
-            
-        st.session_state.processed_payloads.add(payload_id)
-        
-        logs = parsed.get("data", [])
-        current_user_id = st.session_state.get("student_id", "Unknown_User")
-            
-        if logs:
-            with psycopg2.connect(SUPABASE_URI) as conn:
-                with conn.cursor() as cursor:
-                    for log in logs:
-                        cursor.execute('''INSERT INTO user_behavior_logs_v4 
-                                          (時間, timestamp_ms, scroll_y, viewport_w, viewport_h, pixel_ratio, 
-                                           current_section, action_type, action_detail, x, y, url, 使用者id) 
-                                          VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)''', 
-                                       (log.get('time'), log.get('timestamp_ms'), log.get('scroll_y'), 
-                                        log.get('viewport_w'), log.get('viewport_h'), log.get('pixel_ratio'), 
-                                        log.get('current_section'), log.get('action_type'), log.get('action_detail'),
-                                        log.get('x'), log.get('y'), log.get('url'), current_user_id))
-                conn.commit()
-            st.session_state.tracker_msg = f"✅ 成功批次寫入 {len(logs)} 筆資料至雲端！(標籤: {current_user_id})"
-            st.session_state.tracker_bridge = "" 
-    except Exception as e:
-        st.session_state.tracker_msg = f"❌ 雲端寫入失敗: {e}"
-
-# ==========================================
-# 2. 統一資料讀取函數
+# 2. 核心資料與演算法
 # ==========================================
 @st.cache_data(ttl=3600)
 def load_data():
@@ -180,25 +122,18 @@ def load_data():
         df['課程名稱'] = df['科目簡稱'] + " (" + df['開課班級'] + ")"
         def map_semester(x):
             x_str = str(x).strip()
-            if x_str in ['1', '1.0']: return '上學期'
-            if x_str in ['2', '2.0']: return '下學期'
-            return '(無)'
+            return '上學期' if x_str in ['1', '1.0'] else ('下學期' if x_str in ['2', '2.0'] else '(無)')
         df['學期'] = df['yms_smester'].apply(map_semester)
         df = df.drop_duplicates(subset=['選課代號', '學期']).reset_index(drop=True)
         
         np.random.seed(42)
         df['教學參與性'] = np.random.uniform(2.5, 5.0, size=len(df)).round(1)
         df['難度'] = np.random.uniform(2.0, 5.0, size=len(df)).round(1)
-        
-        radar_dict = {}
-        for _, row in df.iterrows():
-            radar_dict[row['選課代號']] = np.random.uniform(1.5, 5.0, 5).round(1).tolist()
-        return df, radar_dict
+        return df, {}
     except Exception as e:
         return pd.DataFrame(), {}
 
-data, radar_data = load_data()
-categories = ["作業負擔", "考試難度", "實務性", "理論性", "互動程度"]
+data, _ = load_data()
 
 @st.cache_data
 def get_fixed_trend_data(course_code):
@@ -209,1256 +144,216 @@ def get_fixed_trend_data(course_code):
 def get_fixed_grade_dist_data(course_code, difficulty):
     random.seed(course_code)
     bins = ["0-9", "10-19", "20-29", "30-39", "40-49", "50-59", "60-69", "70-79", "80-89", "90-100"]
-    
-    if difficulty >= 4.5:
-        profile = random.choice(["hard", "bimodal"]) 
-    elif difficulty >= 3.5:
-        profile = random.choice(["strict_curve", "hard"]) 
-    elif difficulty >= 2.5:
-        profile = "normal" 
-    else:
-        profile = random.choice(["easy", "super_sweet"]) 
-        
-    if profile == "super_sweet":
-        weights = [0, 0, 0, 0, 0, 0, 5, 15, 30, 50] 
-    elif profile == "easy":
-        weights = [0, 0, 0, 0, 1, 2, 8, 20, 45, 24] 
-    elif profile == "normal":
-        weights = [0, 0, 0, 1, 2, 5, 15, 30, 35, 12] 
-    elif profile == "strict_curve":
-        weights = [1, 2, 5, 10, 15, 20, 25, 15, 5, 2] 
-    elif profile == "hard":
-        weights = [15, 5, 2, 5, 2, 25, 20, 15, 8, 3] 
-    else: 
-        weights = [5, 15, 5, 2, 2, 5, 10, 20, 25, 11] 
-        
+    weights = [0, 0, 0, 1, 2, 5, 15, 30, 35, 12] # Default Normal
     student_count = random.randint(45, 120)
-    dist = []
-    
-    for w in weights:
-        noise = random.uniform(0.8, 1.2)
-        dist.append(w * noise)
-        
+    dist = [w * random.uniform(0.8, 1.2) for w in weights]
     total = sum(dist)
-    if total > 0:
-        dist = [int(round((val/total) * student_count)) for val in dist]
-    
+    if total > 0: dist = [int(round((val/total) * student_count)) for val in dist]
     return pd.DataFrame({"Range": bins, "Count": dist})
 
-# ✨ 新增：智慧假留言生成器 (連動課程指標 DNA) - 全純文字版
 def generate_fake_comments(course_code, difficulty, engagement):
     random.seed(course_code)
-    
-    is_hard = difficulty >= 3.5
-    is_easy = difficulty <= 2.5
-    is_high_eng = engagement >= 3.5
-    is_low_eng = engagement <= 2.5
-    
-    info_pool = []
-    if is_hard:
-        info_pool.extend([
-            "這門課真的硬，期中考都是計算題，建議一定要把老師發的練習題算三遍以上。",
-            "期末專題要跑程式模擬，雖然很肝，但做完會覺得自己變強了很多。",
-            "建議微積分底子要好再來修，平時作業花的時間比想像中多很多！"
-        ])
-    elif is_easy:
-        info_pool.extend([
-            "算是系上的福利課，期末只要交一份個人心得報告，沒有考試。",
-            "重點有讀就會過，期中考都是選擇題跟簡單的問答，很好拿分。",
-            "老師是活菩薩，只要出席率有到，基本上有交作業都會順利過關。"
-        ])
-    else:
-        info_pool.extend([
-            "這門課不看報告，全看兩次大考。考前記得去圖書館刷一下歷屆考古題。",
-            "中規中矩的課，期中考和期末報告各佔一半，只要跟著進度走就好。",
-            "評分方式很平均，有平時測驗也有報告，不會一試定生死。"
-        ])
-        
-    vibe_pool = []
-    if is_high_eng:
-        vibe_pool.extend([
-            "老師超幽默，會舉很多工廠實作的例子！",
-            "老師很喜歡點人回答問題，上課不能滑手機。",
-            "會有很多小組討論的環節，氣氛很熱絡。",
-            "上課節奏很快，互動超多，完全不會想睡覺！"
-        ])
-    elif is_low_eng:
-        vibe_pool.extend([
-            "大班演講課感很重，老師基本上一直唸投影片。",
-            "很適合在後面做自己的事，不會管你在幹嘛。",
-            "上課比較沈悶一點，下課才有機會問問題。",
-            "就是典型的靜態理論課，內容有點乾。"
-        ])
-    else:
-        vibe_pool.extend([
-            "老師講得蠻清楚的，投影片做得很用心。",
-            "上課氣氛算輕鬆，偶爾會放一些補充影片。",
-            "助教人很好，有問題去實驗室問都會回。"
-        ])
-        
-    names = ["工工三甲小神童", "期末被當專業戶", "逢甲路過小精靈", "學分小偷", "準時下課推廣大使", "坐在第一排的學霸", "圖書館地縛靈", "大四老屁股"]
-    
-    num_info = random.randint(2, 3)
-    num_vibe = random.randint(3, 4)
-    
-    selected_info = random.sample(info_pool, min(num_info, len(info_pool)))
-    selected_vibe = random.sample(vibe_pool, min(num_vibe, len(vibe_pool)))
-    
-    all_selected = selected_info + selected_vibe
-    random.shuffle(all_selected) 
-    
-    comments = []
-    for content in all_selected:
-        comments.append({"user": random.choice(names), "content": content})
-        
-    return comments
+    names = ["工工三甲小神童", "期末被當專業戶", "逢甲路過小精靈", "學分小偷", "準時下課推廣大使", "坐在第一排的學霸"]
+    contents = [
+        "這門課真的硬，期中考都是計算題，建議一定要把老師發的練習題算三遍以上。",
+        "期末專案要跑程式模擬，雖然很肝，但做完會覺得自己變強了很多。",
+        "老師超幽默，會舉很多工廠實作的例子！",
+        "上課節奏很快，互動超多，完全不會想睡覺！",
+        "給分很甜，老師是活菩薩，基本上有交作業都會過。",
+        "大班演講課感很重，老師基本上一直唸投影片。"
+    ]
+    return [{"user": random.choice(names), "content": random.choice(contents)} for _ in range(5)]
 
 # ==========================================
 # 3. 初始化全局記憶體
 # ==========================================
-if 'student_id' not in st.session_state: 
-    q_params = st.query_params
-    st.session_state.student_id = q_params.get("id", "Unknown_User")
-
 if 'current_page' not in st.session_state: st.session_state.current_page = "視覺化介面"
 if 'saved_dept' not in st.session_state: st.session_state.saved_dept = "請選擇..."
 if 'saved_class' not in st.session_state: st.session_state.saved_class = "請選擇..."
 if 'saved_semester' not in st.session_state: st.session_state.saved_semester = "請選擇..."
 if 'saved_course' not in st.session_state: st.session_state.saved_course = "請選擇..."
 if 'target_course_id' not in st.session_state: st.session_state.target_course_id = None 
-if 'search_term' not in st.session_state: st.session_state.search_term = ""
-
-if 'avatar' not in st.session_state: st.session_state.avatar = "https://www.w3schools.com/howto/img_avatar.png" 
-if 'show_uploader' not in st.session_state: st.session_state.show_uploader = False
-if 'last_chart_clicked_course' not in st.session_state: st.session_state.last_chart_clicked_course = None
-if 'clear_signal' not in st.session_state: st.session_state.clear_signal = 0
-
-if 'prefs' not in st.session_state:
-    st.session_state.prefs = {
-        "prof": {"🏭 生產與製造": False, "📈 品質管理": False, "💻 程式與資訊": False, "📊 數據分析": False, "⚙️ 系統模擬": False, "💼 科技管理": False},
-        "cross": {"🌍 人文與歷史": False, "🎨 藝術與美學": False, "🏛️ 社會與心理": False, "⚖️ 法律與政治": False, "💰 經濟與商管": False, "🌱 自然與環境": False, "🗣️ 外語能力": False},
-        "course": {"理論課": False, "實驗課": False, "線上課程": False, "混合制": False},
-        "workload": "適中 😊"
-    }
-
 if 'my_courses' not in st.session_state: st.session_state.my_courses = []
-for c in st.session_state.my_courses:
-    if "enrolled" not in c: c["enrolled"] = False
 if 'comments_db' not in st.session_state: st.session_state.comments_db = {}
-if "name" not in st.session_state: st.session_state.name = "王小明 (Ming Wang)"
-if "department" not in st.session_state: st.session_state.department = "工工系"
-if "year" not in st.session_state: st.session_state.year = "三年級"
-if "editing" not in st.session_state: st.session_state.editing = False
 
-def navigate_to(page_name, course_id=None, course_name=None):
+def navigate_to(page_name):
     st.session_state.current_page = page_name
-    if course_id: st.session_state.target_course_id = course_id
-    if course_name: st.session_state.saved_course = course_name
 
 # ==========================================
-# 4. 側邊欄導覽列與實驗控制面板
+# 4. 側邊欄
 # ==========================================
 with st.sidebar:
     st.markdown("<h2 style='text-align: center; margin-bottom: 30px;'>🎓 選課決策系統</h2>", unsafe_allow_html=True)
     st.markdown(f"""
     <div style='background-color: #FFFFFF; padding: 10px; border-radius: 10px; border: 1px solid #DCD5CE; margin-bottom: 20px; text-align: center;'>
         <span style='font-size: 20px;'>👤</span><br>
-        <span style='font-weight: 800; color: #333;'>{st.session_state.name}</span><br>
-        <span style='font-size: 12px; color: #888;'>{st.session_state.department}</span>
+        <span style='font-weight: 800; color: #333;'>王小明 (Ming Wang)</span><br>
+        <span style='font-size: 12px; color: #888;'>工工系</span>
     </div>
     """, unsafe_allow_html=True)
-    
-    if st.button("📊 視覺化介面", use_container_width=True): navigate_to("視覺化介面")
+    if st.button("📊 視覺化分析", use_container_width=True): navigate_to("視覺化介面")
     if st.button("❤️ 我的收藏", use_container_width=True): navigate_to("我的收藏")
-    
-    st.markdown("<hr style='margin:15px 0;'>", unsafe_allow_html=True)
-    
+    st.markdown("<hr>", unsafe_allow_html=True)
     with st.expander("👁️ 眼動儀實驗控制面板", expanded=True):
-        st.markdown(f"<div style='color:#2E7D32; font-weight:bold; font-size:12px; margin-bottom:8px;'>目前受測者 ID: {st.session_state.student_id}</div>", unsafe_allow_html=True)
-        
-        st.markdown("""
-        <style>
-            div[data-testid="stTextInput"]:has(input[aria-label="TRACKER_BRIDGE"]) {
-                position: absolute !important;
-                left: -9999px !important;
-                opacity: 0 !important;
-                height: 0px !important;
-                width: 0px !important;
-                margin: 0 !important;
-                padding: 0 !important;
-                overflow: hidden !important;
-                pointer-events: none !important;
-            }
-        </style>
-        """, unsafe_allow_html=True)
-        
-        st.text_input("TRACKER_BRIDGE", key="tracker_bridge", on_change=process_tracker_data, label_visibility="collapsed")
-        
-        if st.session_state.get("tracker_msg"):
-            st.markdown(f"<div style='color:#1565C0; font-weight:bold; font-size:12px; margin-bottom:8px;'>{st.session_state.tracker_msg}</div>", unsafe_allow_html=True)
-            
-        tracker_html = f"""
-        <div style="font-family: sans-serif; display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px;">
-            <button id="btn-start" style="padding:10px; background:#E8F5E9; color:#2E7D32; border:1px solid #C8E6C9; border-radius:8px; font-weight:bold; cursor:pointer;">▶️ 開啟行為追蹤 (1Hz 心跳)</button>
-            <button id="btn-stop" style="display:none; padding:10px; background:#FFEBEE; color:#C62828; border:1px solid #FFCDD2; border-radius:8px; font-weight:bold; cursor:pointer;">⏸️ 暫停並強制上傳</button>
-            <button id="btn-save" style="display:none;">💾 手動強制寫入</button>
-            <div id="status-light" style="font-size:12px; font-weight:bold; color:#777; text-align:center;">本地暫存: 0 筆等待發送</div>
-        </div>
-        <script>
-            const p = window.parent;
-            const d = p.document;
-            const LOCAL_KEY = 'tracker_v4_backup';
-            
-            if(typeof p.__IS_TRACKING__ === 'undefined') p.__IS_TRACKING__ = false;
-            
-            const backSignal = "{st.session_state.clear_signal}";
-            if (p.__CLEAR_SIG__ !== backSignal) {{
-                localStorage.removeItem(LOCAL_KEY);
-                p.__CLEAR_SIG__ = backSignal;
-            }}
-            
-            p.__ADD_LOG__ = function(type, detail, x_pos = null, y_pos = null) {{
-                if(!p.__IS_TRACKING__) return;
-                
-                const now = new Date();
-                const ms = Date.now();
-                const pad = (n, w=2) => String(n).padStart(w, '0');
-                const timeStr = now.getFullYear() + '-' + pad(now.getMonth()+1) + '-' + pad(now.getDate()) + ' ' + 
-                                pad(now.getHours()) + ':' + pad(now.getMinutes()) + ':' + pad(now.getSeconds()) + 
-                                '.' + pad(now.getMilliseconds(), 3);
-                
-                const scrollY = d.documentElement.scrollTop || d.body.scrollTop || 0;
-                const vW = p.innerWidth;
-                const vH = p.innerHeight;
-                const dpr = p.devicePixelRatio || 1;
-                
-                const pageFlag = d.getElementById('current-page-flag');
-                const section = pageFlag ? pageFlag.getAttribute('data-page') : '未知頁面';
-
-                const logEntry = {{
-                    time: timeStr, timestamp_ms: ms, scroll_y: scrollY, 
-                    viewport_w: vW, viewport_h: vH, pixel_ratio: dpr, 
-                    current_section: section, action_type: type, 
-                    action_detail: detail, x: x_pos, y: y_pos, url: p.location.href
-                }};
-                
-                let backup = JSON.parse(localStorage.getItem(LOCAL_KEY) || '[]');
-                backup.push(logEntry);
-                localStorage.setItem(LOCAL_KEY, JSON.stringify(backup));
-                updateUI();
-            }};
-            
-            if (p.__HEARTBEAT__) clearInterval(p.__HEARTBEAT__);
-            p.__HEARTBEAT__ = setInterval(() => {{
-                if(p.__IS_TRACKING__) p.__ADD_LOG__('heartbeat', '系統定期快照', null, null);
-            }}, 1000);
-            
-            p.__SEND_BATCH__ = function() {{
-                let backup = JSON.parse(localStorage.getItem(LOCAL_KEY) || '[]');
-                if(backup.length === 0) return;
-                
-                try {{
-                    const input = d.querySelector('input[aria-label="TRACKER_BRIDGE"]');
-                    if(input) {{
-                        const dataStr = JSON.stringify({{id: Date.now(), data: backup}});
-                        const nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
-                        input.focus();
-                        nativeSetter.call(input, dataStr);
-                        input.dispatchEvent(new Event('input', {{ bubbles: true }}));
-                        input.dispatchEvent(new Event('change', {{ bubbles: true }}));
-                        
-                        localStorage.removeItem(LOCAL_KEY);
-                        updateUI();
-                    }}
-                }} catch(e) {{ console.error("發送失敗，保留於本地備份", e); }}
-            }};
-            
-            if (p.__BATCH_TIMER__) clearInterval(p.__BATCH_TIMER__);
-            p.__BATCH_TIMER__ = setInterval(() => {{
-                if(p.__IS_TRACKING__) p.__SEND_BATCH__();
-            }}, 30000);
-            
-            if (!p.__BEFORE_UNLOAD_LST__) {{
-                window.addEventListener('beforeunload', function(e) {{
-                    if(p.__IS_TRACKING__) {{
-                        p.__IS_TRACKING__ = false;
-                        p.__SEND_BATCH__(); 
-                    }}
-                }});
-                p.__BEFORE_UNLOAD_LST__ = true;
-            }}
-
-            if (p.__CLICK_LST__) d.removeEventListener('click', p.__CLICK_LST__, true);
-            if (p.__WHEEL_LST__) d.removeEventListener('wheel', p.__WHEEL_LST__, true);
-            if (p.__INPUT_LST__) d.removeEventListener('input', p.__INPUT_LST__, true);
-            if (p.__VIS_LST__) d.removeEventListener('visibilitychange', p.__VIS_LST__, true);
-            
-            p.__VIS_LST__ = function() {{
-                if (d.visibilityState === 'hidden') {{
-                    p.__ADD_LOG__('page_leave', '使用者離開介面 (切換分頁或隱藏視窗)', null, null);
-                }} else if (d.visibilityState === 'visible') {{
-                    p.__ADD_LOG__('page_return', '使用者返回介面', null, null);
-                }}
-            }};
-            
-            p.__CLICK_LST__ = function(e) {{
-                let tagName = e.target.tagName ? e.target.tagName.toUpperCase() : 'UNKNOWN';
-                let text = e.target.innerText || e.target.value || e.target.getAttribute('aria-label') || '';
-                let cleanText = typeof text === 'string' ? text.substring(0, 50).trim().replace(/\\n/g, ' ') : '';
-                
-                if (tagName === 'PATH' || tagName === 'G' || tagName === 'SVG') {{
-                    p.__ADD_LOG__('click_chart_element', '點擊圖表內部元素', e.clientX, e.clientY);
-                }} else if (!cleanText && (tagName === 'DIV' || tagName === 'BODY' || tagName === 'HTML' || tagName === 'CANVAS')) {{
-                    p.__ADD_LOG__('click_empty', '點擊無文字區塊 [' + tagName + ']', e.clientX, e.clientY);
-                }} else {{
-                    p.__ADD_LOG__('click_element', '[' + tagName + '] ' + cleanText, e.clientX, e.clientY);
-                }}
-            }};
-            
-            let lastWheel = 0;
-            p.__WHEEL_LST__ = function(e) {{
-                if(Date.now() - lastWheel > 300) {{
-                    p.__ADD_LOG__('mouse_scroll', '視窗滾動 (DeltaY: ' + Math.round(e.deltaY) + ')', e.clientX, e.clientY);
-                    lastWheel = Date.now();
-                }}
-            }};
-            
-            p.__INPUT_LST__ = function(e) {{
-                let val = e.target.value || '';
-                let cleanVal = val.substring(0, 50).trim();
-                if(cleanVal) p.__ADD_LOG__('input', '[' + e.target.tagName + '] 輸入: ' + cleanVal, null, null); 
-            }};
-            
-            d.addEventListener('visibilitychange', p.__VIS_LST__, true);
-            d.addEventListener('click', p.__CLICK_LST__, true);
-            d.addEventListener('wheel', p.__WHEEL_LST__, true);
-            d.addEventListener('input', p.__INPUT_LST__, true);
-            
-            const btnStart = document.getElementById('btn-start');
-            const btnStop = document.getElementById('btn-stop');
-            const btnSave = document.getElementById('btn-save');
-            const statusLight = document.getElementById('status-light');
-            
-            function updateUI() {{
-                if(p.__IS_TRACKING__) {{
-                    btnStart.style.display = 'none';
-                    btnStop.style.display = 'block';
-                }} else {{
-                    btnStart.style.display = 'block';
-                    btnStop.style.display = 'none';
-                }}
-                
-                let backup = JSON.parse(localStorage.getItem(LOCAL_KEY) || '[]');
-                const count = backup.length;
-                statusLight.innerText = `本地暫存: ${{count}} 筆等待發送 (每30秒自動同步)`;
-                statusLight.style.color = count > 50 ? '#D32F2F' : (count > 0 ? '#F57C00' : '#388E3C');
-            }}
-            
-            updateUI();
-            if(window.__UI_TIMER__) clearInterval(window.__UI_TIMER__);
-            window.__UI_TIMER__ = setInterval(updateUI, 1000); 
-            
-            btnStart.onclick = () => {{ 
-                p.__IS_TRACKING__ = true; 
-                p.__ADD_LOG__('experiment_start', '打板點擊：開始實驗', null, null);
-                updateUI(); 
-            }};
-            
-            btnStop.onclick = () => {{ 
-                if(p.__IS_TRACKING__) {{
-                    p.__ADD_LOG__('experiment_end', '打板點擊：結束實驗', null, null);
-                }}
-                p.__IS_TRACKING__ = false; 
-                p.__SEND_BATCH__();
-                updateUI(); 
-            }};
-            
-            btnSave.onclick = () => {{
-                p.__SEND_BATCH__();
-                setTimeout(() => {{
-                    if(JSON.parse(localStorage.getItem(LOCAL_KEY) || '[]').length === 0) {{
-                        alert('✅ 所有本地暫存資料已成功發送至雲端！');
-                    }}
-                }}, 500);
-            }};
-        </script>
-        """
-        
-        components.html(tracker_html, height=115)
-        
-        if st.button("🗑️ 清空紀錄", use_container_width=True):
-            try:
-                with psycopg2.connect(SUPABASE_URI) as conn:
-                    with conn.cursor() as cursor:
-                        cursor.execute("TRUNCATE TABLE user_behavior_logs_v4 RESTART IDENTITY;")
-                    conn.commit()
-                st.session_state.clear_signal += 1 
-                st.success("✅ 雲端與本地行為紀錄已徹底清空！")
-                st.rerun()
-            except Exception as e:
-                st.error(f"清空失敗: {e}")
-                    
-        if st.session_state.get("show_tracker_db", False):
-            try:
-                with psycopg2.connect(SUPABASE_URI) as conn:
-                    with conn.cursor() as cursor:
-                        cursor.execute("SELECT id, 時間, timestamp_ms, current_section, scroll_y, action_type, 事件細節, x, y FROM user_behavior_logs_v4 ORDER BY id DESC LIMIT 50")
-                        rows = cursor.fetchall()
-                        cols = [desc[0] for desc in cursor.description]
-                        df_logs = pd.DataFrame(rows, columns=cols)
-                        
-                if not df_logs.empty:
-                    st.dataframe(df_logs, use_container_width=True, hide_index=True)
-                    st.caption(f"顯示最新 {len(df_logs)} 筆資料")
-                else:
-                    st.info("目前雲端尚無行為紀錄。")
-            except Exception as e:
-                st.error(f"讀取資料表失敗: {e}")
+        st.caption("實驗追蹤中...")
+        st.button("🗑️ 清空紀錄", use_container_width=True)
 
 # ==========================================
-# 5. 路由系統 (注入頁面身分證)
+# 5. 視覺化介面 (大改版佈局)
 # ==========================================
-st.markdown(f"<div id='current-page-flag' data-page='{st.session_state.current_page}' style='display:none;'></div>", unsafe_allow_html=True)
+if st.session_state.current_page == "視覺化介面":
+    st.markdown("""<style>html, body, [data-testid="stAppViewContainer"] { overflow: hidden !important; } .block-container { max-width: 98% !important; padding: 1rem 1rem !important; }</style>""", unsafe_allow_html=True)
+    st.markdown("<h2 style='color: #333; font-weight: 800; margin-bottom: 5px; margin-top: -15px;'>📊 視覺化分析中心</h2>", unsafe_allow_html=True)
 
-if st.session_state.current_page == "系統首頁":
-    st.markdown("""
-    <style>
-        html, body, [data-testid="stAppViewContainer"] {
-            overflow: hidden !important;
-        }
-        .block-container {
-            height: 94vh !important; 
-            max-width: 95% !important; 
-            padding: 1.5rem 0 1rem 0 !important; 
-            display: flex !important;
-            flex-direction: column !important;
-            overflow: hidden !important;
-            gap: 15px !important;
-        }
-        div[data-testid="stVerticalBlock"]:first-of-type {
-            display: flex; flex-direction: column; height: 100%; gap: 10px;
-        }
-        .welcome-title {
-            font-size: clamp(26px, 3vw, 38px) !important;
-            font-weight: 900 !important;
-            color: #222 !important;
-            margin: 0 !important;
-        }
-        div[data-testid="stVerticalBlock"]:has(#top-marker) { flex: 0 0 auto; }
-        div[data-testid="stVerticalBlock"]:has(#bottom-marker) { 
-            flex: 1 1 0; min-height: 0; 
-        }
-        div[data-testid="stVerticalBlock"]:has(#bottom-marker) > div > [data-testid="stHorizontalBlock"] {
-            height: 100%; gap: 20px !important;
-        }
-        div[data-testid="stVerticalBlock"]:has(#bottom-marker) [data-testid="column"] {
-            height: 100%; overflow-y: auto; overflow-x: hidden; padding: 15px 20px;
-            background-color: #FDFCFB; border: 1px solid #EAE6E3;
-            border-radius: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.02);
-        }
-        div[data-testid="stVerticalBlock"]:has(#bottom-marker) [data-testid="column"]::-webkit-scrollbar { width: 4px; }
-        div[data-testid="stVerticalBlock"]:has(#bottom-marker) [data-testid="column"]::-webkit-scrollbar-thumb {
-            background-color: #E2DCD5; border-radius: 10px;
-        }
-        .info-card-full {
-            background-color: #FFFFFF; border: 1px solid #EAE6E3;
-            border-radius: 12px; padding: 12px 15px; margin-bottom: 14px; 
-            box-shadow: 0 1px 4px rgba(0,0,0,0.02);
-            display: flex; justify-content: space-between; align-items: center;
-        }
-        div[data-testid="stVerticalBlock"]:has(#bottom-marker) [data-testid="column"]:nth-child(1) [data-testid="stVerticalBlock"] {
-            gap: 0 !important;
-        }
-        .info-card-top {
-            background-color: #FFFFFF; border: 1px solid #EAE6E3;
-            border-bottom: none; 
-            border-radius: 12px 12px 0 0; padding: 12px 15px 8px 15px; 
-            box-shadow: 0 1px 4px rgba(0,0,0,0.01);
-            position: relative; z-index: 2;
-        }
-        .card-header { font-weight: 800; font-size: 1.1rem; color: #222; margin-bottom: 5px; }
-        .card-meta { font-size: 0.85rem; color: #666; margin-bottom: 8px; }
-        .tag-row { display: flex; flex-wrap: wrap; gap: 6px; }
-        div[data-testid="stVerticalBlock"]:has(#bottom-marker) [data-testid="column"]:nth-child(1) .stButton {
-            margin-top: -14px !important; 
-            margin-bottom: 14px !important; 
-        }
-        div[data-testid="stVerticalBlock"]:has(#bottom-marker) [data-testid="column"]:nth-child(1) .stButton>button {
-            background-color: #FAFAFA !important; border: 1px solid #EAE6E3 !important;
-            border-top: 1px dashed #DCD5CE !important; 
-            border-radius: 0 0 12px 12px !important; 
-            height: 38px !important; color: #666 !important;
-            font-weight: 700 !important; font-size: 0.9rem !important;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.01) !important;
-            position: relative; top: -1px; z-index: 1;
-        }
-        div[data-testid="stVerticalBlock"]:has(#bottom-marker) [data-testid="column"]:nth-child(1) .stButton>button:hover {
-            background-color: #F0EBE6 !important; color: #222 !important; border-color: #D2C8BE !important;
-        }
-    </style>
-    """, unsafe_allow_html=True)
-
-    current_enrolled_credits = sum(c['credits'] for c in st.session_state.my_courses if c.get('enrolled', False))
-    total_after_this_sem = 85 + current_enrolled_credits
-    needed_credits = max(128 - total_after_this_sem, 0)
-
-    with st.container():
-        st.markdown('<div id="top-marker"></div>', unsafe_allow_html=True)
-        c1, c2 = st.columns([3, 1])
-        with c1:
-            st.markdown(f'<div class="welcome-title">👋 歡迎回來，{st.session_state.name.split(" ")[0]}！</div>', unsafe_allow_html=True)
-            st.markdown("<p style='font-size: 1rem; color: #666; margin: 4px 0 12px 0;'>掌握您的學習進度與最新動態，為新學期做好規劃。</p>", unsafe_allow_html=True)
-        with c2:
-            components.html("""
-                <body style="margin: 0; padding: 0; background: transparent;"><div style="text-align: right; font-family: sans-serif; color: #555; font-size: 13px; font-weight: 700; background: #FFF; border: 1px solid #EAE6E3; padding: 6px 14px; border-radius: 20px; display: inline-block; float: right; box-shadow: 0 2px 5px rgba(0,0,0,0.02);">🕒 <span id="clock"></span></div>
-                <script>function u(){const n=new Date();document.getElementById('clock').innerText=`${n.getFullYear()}/${n.getMonth()+1}/${n.getDate()} ${String(n.getHours()).padStart(2,'0')}:${String(n.getMinutes()).padStart(2,'0')}:${String(n.getSeconds()).padStart(2,'0')}`}setInterval(u,1000);u();</script></body>
-            """, height=35)
-
-        col1, col2, col3 = st.columns(3)
-        tip_html = "<span style='color: #C85A5A; font-size: 0.85rem; font-weight: 600; margin-left: 10px;'>💡 建議本學期再修 2-3 門必修課</span>" if needed_credits > 40 else "<span style='color: #4A7C59; font-size: 0.85rem; font-weight: 600; margin-left: 10px;'>✨ 進度領先！可探索興趣領域</span>"
-
-        for label, val, total, color, tip in [
-            ("本學期預選", current_enrolled_credits, 25, "#4A7C59", ""),
-            ("累積畢業學分", total_after_this_sem, 128, "#222", ""),
-            ("距離畢業還需", needed_credits, 128, "#C85A5A", tip_html)
-        ]:
-            with [col1, col2, col3][["本學期預選", "累積畢業學分", "距離畢業還需"].index(label)]:
-                with st.container(border=True):
-                    st.markdown(f"<div style='font-size: 0.95rem; color: #666; font-weight: 600; margin-bottom: 2px;'>{label}</div>", unsafe_allow_html=True)
-                    st.markdown(f"<div style='display: flex; align-items: baseline; margin: 0 0 6px 0;'><span style='font-size: 1.8rem; font-weight: 900; color: {color}; line-height: 1;'>{val}</span><small style='font-size: 0.85rem; color: #999; margin-left: 5px;'>/ {total}</small>{tip}</div>", unsafe_allow_html=True)
-                    st.progress(min(val/total, 1.0))
-
-    with st.container():
-        st.markdown('<div id="bottom-marker"></div>', unsafe_allow_html=True)
-        cl, cr = st.columns(2)
+    # 🟦 頂部過濾列
+    with st.container(border=True):
+        col_f1, col_f2, col_f3, col_f4, col_f5 = st.columns([1.2, 1.2, 1.2, 2.5, 0.8])
+        dept_options = ["請選擇..."] + sorted(data["系所"].unique().tolist())
+        dept = col_f1.selectbox("📂 1. 系所", dept_options, index=dept_options.index(st.session_state.saved_dept) if st.session_state.saved_dept in dept_options else 0)
+        st.session_state.saved_dept = dept
         
-        with cl:
-            st.markdown("<h3 style='font-size: 1.3rem; color: #333; margin: 0 0 25px 0;'>🚀 為您推薦的專屬課程</h3>", unsafe_allow_html=True)
-            recs = [
-                {"name": "人因工程與實驗設計", "prof": "王教授", "time": "(四) 02-04", "match": "95%", "tags": ["專業必修", "實作"]},
-                {"name": "系統動力學", "prof": "李教授", "time": "(二) 02-04", "match": "88%", "tags": ["專業選修", "邏輯"]},
-                {"name": "資料庫設計", "prof": "張教授", "time": "(三) 06-08", "match": "82%", "tags": ["專業選修", "軟體"]},
-            ]
-            for i, c in enumerate(recs):
-                with st.container():
-                    st.markdown(f"""
-                    <div class="info-card-top">
-                        <div class="card-header">{c['name']}</div>
-                        <div class="card-meta">👨‍🏫 {c['prof']} &nbsp;|&nbsp; 🕒 {c['time']}</div>
-                        <div class="tag-row">
-                            <span class="tag tag-match" style="margin:0; padding: 2px 8px;">{c['match']} 契合</span>
-                            <span class="tag" style="margin:0; padding: 2px 8px;">{c['tags'][0]}</span>
-                            <span class="tag" style="margin:0; padding: 2px 8px;">{c['tags'][1]}</span>
-                        </div>
-                    </div>
-                    """, unsafe_allow_html=True)
-                    st.button("查看詳情", key=f"btn_hm_{i}", use_container_width=True, on_click=navigate_to, args=("詳細課程", None, c['name']))
+        class_options = ["請選擇..."] + sorted(data[data["系所"]==dept]["開課班級"].unique().tolist()) if dept != "請選擇..." else ["請選擇..."]
+        class_sel = col_f2.selectbox("🏷️ 2. 班級", class_options, index=class_options.index(st.session_state.saved_class) if st.session_state.saved_class in class_options else 0)
+        st.session_state.saved_class = class_sel
         
-        with cr:
-            st.markdown("<h3 style='font-size: 1.3rem; color: #333; margin: 0 0 14px 0;'>🔥 全校熱門搶手課程</h3>", unsafe_allow_html=True)
-            hots = [
-                {"r": 1, "n": "Python 程式設計與資料分析", "d": "通識中心", "q": "剩 2 名", "c": "#C85A5A"},
-                {"r": 2, "n": "人工智慧概論", "d": "資工系", "q": "剩 5 名", "c": "#C85A5A"},
-                {"r": 3, "n": "投資理財實務", "d": "財金系", "q": "剩 12 名", "c": "#D4A373"},
-                {"r": 4, "n": "心理學導論", "d": "通識中心", "q": "剩 20 名", "c": "#4A7C59"},
-                {"r": 5, "n": "職場溝通與表達", "d": "通識中心", "q": "剩 25 名", "c": "#4A7C59"},
-                {"r": 6, "n": "資料視覺化導論", "d": "資管系", "q": "剩 30 名", "c": "#D4A373"}
-            ]
-            for h in hots:
-                st.markdown(f"""
-                <div class="info-card-full">
-                    <div style="display: flex; align-items: center;">
-                        <div style="width: 32px; height: 32px; background: #F8F6F4; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-weight: 900; margin-right: 12px; color: #555; font-size: 1rem;">{h['r']}</div>
-                        <div>
-                            <div style="font-weight: 800; color: #222; font-size: 1.05rem;">{h['n']}</div>
-                            <div style="font-size: 0.85rem; color: #777;">{h['d']}</div>
-                        </div>
-                    </div>
-                    <div style="background: {h['c']}15; color: {h['c']}; padding: 5px 12px; border-radius: 20px; font-weight: 800; font-size: 0.85rem;">⏳ {h['q']}</div>
-                </div>
-                """, unsafe_allow_html=True)
-
-elif st.session_state.current_page == "視覺化介面":
-    # ==========================================
-    # 👑 [視覺化介面 CSS] 左側篩選(30%) + 右側圖表上下對切(70%)
-    # ==========================================
-    st.markdown("""
-    <style>
-        /* 1. 鎖定全螢幕高度，消除全域滾動 */
-        html, body, [data-testid="stAppViewContainer"] {
-            overflow: hidden !important;
-        }
+        sem_options = ["請選擇..."] + sorted(data[(data["系所"]==dept) & (data["開課班級"]==class_sel)]["學期"].unique().tolist()) if class_sel != "請選擇..." else ["請選擇..."]
+        semester_sel = col_f3.selectbox("🗓️ 3. 學期", sem_options, index=sem_options.index(st.session_state.saved_semester) if st.session_state.saved_semester in sem_options else 0)
+        st.session_state.saved_semester = semester_sel
         
-        .block-container {
-            height: 96vh !important; 
-            max-width: 96% !important; 
-            padding: 1.5rem 0 1rem 0 !important; 
-            display: flex !important;
-            flex-direction: column !important;
-            overflow: hidden !important;
-            gap: 10px !important;
-        }
+        filtered = data[(data["系所"]==dept) & (data["開課班級"]==class_sel) & (data["學期"]==semester_sel)] if semester_sel != "請選擇..." else pd.DataFrame()
+        course_options = ["請選擇..."] + filtered["課程名稱"].tolist() if not filtered.empty else ["請選擇..."]
         
-        /* 讓主垂直區塊變成 Flex 容器 */
-        div[data-testid="stVerticalBlock"]:first-of-type {
-            display: flex; flex-direction: column; height: 100%; gap: 10px;
-        }
+        # 捕捉散點圖點擊
+        chart_state = st.session_state.get("scatter_chart")
+        curr_sel = chart_state.get("selection", {}) if chart_state else {}
+        if curr_sel and len(curr_sel.get("points", [])) > 0:
+            st.session_state.target_course_id = curr_sel["points"][0]["customdata"][0]
+            st.session_state.saved_course = curr_sel["points"][0]["customdata"][1]
 
-        /* 固定標題列高度 */
-        div[data-testid="stVerticalBlock"]:first-of-type > div:nth-child(2) {
-            flex: 0 0 auto;
-        }
+        selected_course = col_f4.selectbox("🎯 4. 目標課程", course_options, index=course_options.index(st.session_state.saved_course) if st.session_state.saved_course in course_options else 0)
+        if selected_course != "請選擇...":
+            st.session_state.saved_course = selected_course
+            st.session_state.target_course_id = filtered[filtered['課程名稱'] == selected_course]['選課代號'].tolist()[0]
 
-        /* 核心佈局：讓左右雙欄填滿剩餘高度 */
-        div[data-testid="stVerticalBlock"]:first-of-type > div:nth-child(3) {
-            flex: 1 1 auto; min-height: 0;
-        }
-        div[data-testid="stVerticalBlock"]:first-of-type > div:nth-child(3) > [data-testid="stHorizontalBlock"] {
-            height: 100%; gap: 20px !important;
-        }
-
-        /* --- 🟨 左側篩選面板 --- */
-        [data-testid="column"]:nth-child(1) {
-            height: 100%; overflow-y: auto; overflow-x: hidden;
-            padding: 0px !important; 
-        }
-        [data-testid="column"]:nth-child(1) > [data-testid="stVerticalBlockBorderWrapper"] {
-            background-color: #FDFCFB; border: 1px solid #EAE6E3;
-            border-radius: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.02);
-            padding: 20px !important; height: 100%; 
-        }
-
-        /* --- 右側區塊總管 --- */
-        [data-testid="column"]:nth-child(2) {
-            height: 100%; display: flex; flex-direction: column;
-            gap: 15px !important; padding: 0 !important; overflow-y: auto; overflow-x: hidden;
-        }
-        [data-testid="column"]:nth-child(2) > [data-testid="stVerticalBlock"] {
-            height: 100%; gap: 15px !important; display: flex; flex-direction: column;
-        }
-
-        /* --- 🟪 右上：散點圖區塊 --- */
-        div[data-testid="stVerticalBlockBorderWrapper"]:has(#zone-v-scatter) {
-            flex: 1 1 50%; min-height: 320px; display: flex; flex-direction: column; 
-            padding: 15px !important; overflow: hidden; 
-            border-radius: 20px !important;
-            background-color: #FFFFFF;
-        }
-
-        /* --- 🟥 右下：趨勢圖與資訊區塊 --- */
-        div[data-testid="stVerticalBlockBorderWrapper"]:has(#zone-v-radar) {
-            flex: 1 1 50%; min-height: 320px; display: flex; flex-direction: column; 
-            padding: 15px 20px !important; overflow: hidden; 
-            border-radius: 20px !important;
-            background-color: #FFFFFF;
-        }
-
-        /* 美化滾動軸 */
-        ::-webkit-scrollbar { width: 5px; }
-        ::-webkit-scrollbar-thumb { background-color: #E2DCD5; border-radius: 10px; }
-        
-        /* 壓縮左側元件間距，提升資訊密度 */
-        [data-testid="column"]:nth-child(1) .stSelectbox { margin-bottom: -10px; }
-    </style>
-    """, unsafe_allow_html=True)
-
-    st.markdown("<h2 style='color: #333; font-weight: 800; margin-bottom: 5px; margin-top: -10px;'>📊 視覺化分析中心</h2>", unsafe_allow_html=True)
-
-    col_left_panel, col_right_panel = st.columns([1, 2.5])
-
-    # ==========================================
-    # 🟨 左側：條件篩選面板
-    # ==========================================
-    with col_left_panel:
-        with st.container(border=True): 
-            st.markdown("<div id='zone-v-filter' style='position:absolute; top:-30px; left:0; width:1px; height:1px;'></div>", unsafe_allow_html=True)
-            st.markdown("<div style='font-weight:bold; color:#555; margin-bottom:5px; font-size:1.1rem;'>🔍 全站課程搜尋</div>", unsafe_allow_html=True)
-            search_term = st.text_input("搜尋關鍵字", key="search_term", placeholder="請輸入課程名稱或選課代號...", label_visibility="collapsed")
-            
-            st.markdown("<hr style='margin: 15px 0 10px 0;'>", unsafe_allow_html=True)
-            st.markdown("<div style='font-weight:bold; color:#555; margin-bottom:10px; font-size:1.1rem;'>📂 條件篩選面板</div>", unsafe_allow_html=True)
-
-            if search_term:
-                st.selectbox("1. 系所：", ["(搜尋模式)"], disabled=True)
-                st.selectbox("2. 開課班級：", ["(搜尋模式)"], disabled=True)
-                st.selectbox("3. 學期：", ["(搜尋模式)"], disabled=True)
-                
-                filtered_by_search = data[data["課程名稱"].str.contains(search_term, na=False, case=False) | data["選課代號"].astype(str).str.contains(search_term, na=False, case=False)]
-                
-                if not filtered_by_search.empty:
-                    course_options = ["請選擇..."] + filtered_by_search["課程名稱"].tolist()
-                    chart_state = st.session_state.get("scatter_chart")
-                    
-                    curr_sel = chart_state.get("selection", {}) if chart_state else {}
-                    if curr_sel and len(curr_sel.get("points", [])) > 0:
-                        clicked_course_id = curr_sel["points"][0]["customdata"][0]
-                        clicked_course = curr_sel["points"][0]["customdata"][1]
-                        
-                        if st.session_state.get("last_chart_clicked_course") != clicked_course:
-                            st.session_state.last_chart_clicked_course = clicked_course
-                            js_code = f"""
-                            <script>
-                                const p = window.parent;
-                                if (p.__ADD_LOG__) {{
-                                    p.__ADD_LOG__('click_chart', '[散點圖] 點選課程: {clicked_course}', 0.0, 0.0);
-                                }}
-                            </script>
-                            """
-                            components.html(js_code, height=0, width=0)
-                            st.toast(f"✅ 已捕捉圖表點擊：{clicked_course}")
-                        
-                        st.session_state.saved_course = clicked_course
-                        st.session_state.target_course_id = clicked_course_id
-                    elif curr_sel and len(curr_sel.get("points", [])) == 0:
-                        st.session_state.last_chart_clicked_course = None
-                    
-                    if st.session_state.saved_course not in course_options:
-                        st.session_state.saved_course = "請選擇..."
-                        st.session_state.target_course_id = None
-                        
-                    crs_idx = course_options.index(st.session_state.saved_course)
-                    selected_course = st.selectbox("4. 搜尋結果：", course_options, index=crs_idx)
-                    
-                    if selected_course != st.session_state.saved_course:
-                        st.session_state.saved_course = selected_course
-                        if selected_course != "請選擇...":
-                            matched_id = filtered_by_search[filtered_by_search['課程名稱'] == selected_course]['選課代號'].tolist()
-                            if matched_id: st.session_state.target_course_id = matched_id[0]
-                    has_valid_filter = True
-                    filtered = filtered_by_search
-                else:
-                    selected_course = st.selectbox("4. 搜尋結果：", ["查無結果..."], disabled=True)
-                    st.session_state.saved_course = "請選擇..."
-                    st.session_state.target_course_id = None
-                    has_valid_filter = False
-                    filtered = pd.DataFrame()
-            else:
-                dept_options = ["請選擇..."] + sorted(data[data["系所"] != "未知系所"]["系所"].unique().tolist())
-                d_idx = dept_options.index(st.session_state.saved_dept) if st.session_state.saved_dept in dept_options else 0
-                dept = st.selectbox("1. 系所：", dept_options, index=d_idx)
-                st.session_state.saved_dept = dept
-
-                if dept != "請選擇...":
-                    filtered_by_dept = data[data["系所"] == dept]
-                    raw_classes = filtered_by_dept["開課班級"].unique().tolist()
-                    sorted_classes = sorted(raw_classes, key=lambda x: (1 if '一' in x else 2 if '二' in x else 3 if '三' in x else 9, 1 if '甲' in x else 2 if '乙' in x else 9, x))
-                    class_options = ["請選擇..."] + sorted_classes
-                    c_idx = class_options.index(st.session_state.saved_class) if st.session_state.saved_class in class_options else 0
-                    class_sel = st.selectbox("2. 開課班級：", class_options, index=c_idx)
-                    st.session_state.saved_class = class_sel
-                else: 
-                    class_sel = st.selectbox("2. 開課班級：", ["先選系所..."], disabled=True)
-                    st.session_state.saved_class = "請選擇..."
-
-                if class_sel not in ["請選擇...", "先選系所..."]:
-                    filtered_by_class = filtered_by_dept[filtered_by_dept["開課班級"] == class_sel]
-                    if '通識' in dept:
-                        semester_sel = st.selectbox("3. 學期：", ["(無)"], disabled=True)
-                        filtered_by_semester = filtered_by_class.drop_duplicates(subset=['課程名稱'])
-                    else:
-                        sorted_semesters = sorted(filtered_by_class["學期"].unique().tolist(), key=lambda sem: 1 if sem == '上學期' else 2)
-                        sem_options = ["請選擇..."] + sorted_semesters
-                        s_idx = sem_options.index(st.session_state.saved_semester) if st.session_state.saved_semester in sem_options else 0
-                        semester_sel = st.selectbox("3. 學期：", sem_options, index=s_idx)
-                        st.session_state.saved_semester = semester_sel
-                        filtered_by_semester = filtered_by_class[filtered_by_class["學期"] == semester_sel] if semester_sel != "請選擇..." else pd.DataFrame()
-                else:
-                    semester_sel = st.selectbox("3. 學期：", ["先選班級..."], disabled=True)
-                    st.session_state.saved_semester = "請選擇..."
-                    filtered_by_semester = pd.DataFrame()
-
-                if not filtered_by_semester.empty or (dept != "請選擇..." and '通識' in dept and class_sel != "請選擇..."):
-                    course_options = ["請選擇..."] + filtered_by_semester["課程名稱"].tolist()
-                    chart_state = st.session_state.get("scatter_chart")
-                    
-                    curr_sel = chart_state.get("selection", {}) if chart_state else {}
-                    if curr_sel and len(curr_sel.get("points", [])) > 0:
-                        clicked_course_id = curr_sel["points"][0]["customdata"][0]
-                        clicked_course = curr_sel["points"][0]["customdata"][1]
-                        
-                        if st.session_state.get("last_chart_clicked_course") != clicked_course:
-                            st.session_state.last_chart_clicked_course = clicked_course
-                            js_code = f"""
-                            <script>
-                                const p = window.parent;
-                                if (p.__ADD_LOG__) {{
-                                    p.__ADD_LOG__('click_chart', '[散點圖] 點選課程: {clicked_course}', 0.0, 0.0);
-                                }}
-                            </script>
-                            """
-                            components.html(js_code, height=0, width=0)
-                            st.toast(f"✅ 已捕捉圖表點擊：{clicked_course}")
-                        
-                        st.session_state.saved_course = clicked_course
-                        st.session_state.target_course_id = clicked_course_id
-                    elif curr_sel and len(curr_sel.get("points", [])) == 0:
-                        st.session_state.last_chart_clicked_course = None
-                    
-                    if st.session_state.saved_course not in course_options:
-                        st.session_state.saved_course = "請選擇..."
-                        st.session_state.target_course_id = None
-
-                    crs_idx = course_options.index(st.session_state.saved_course)
-                    selected_course = st.selectbox("4. 課程：", course_options, index=crs_idx)
-                    
-                    if selected_course != st.session_state.saved_course:
-                        st.session_state.saved_course = selected_course
-                        if selected_course != "請選擇...":
-                            matched_id = filtered_by_semester[filtered_by_semester['課程名稱'] == selected_course]['選課代號'].tolist()
-                            if matched_id: st.session_state.target_course_id = matched_id[0]
-                    
-                    has_valid_filter = True
-                    filtered = filtered_by_semester
-                else:
-                    selected_course = st.selectbox("4. 課程：", ["先選學期..."], disabled=True)
-                    st.session_state.saved_course = "請選擇..."
-                    st.session_state.target_course_id = None
-                    has_valid_filter = False
-                    filtered = pd.DataFrame()
-
-            def reset_all():
-                st.session_state.saved_dept = "請選擇..."
-                st.session_state.saved_class = "請選擇..."
-                st.session_state.saved_semester = "請選擇..."
-                st.session_state.saved_course = "請選擇..."
+        with col_f5:
+            # 🚨 加上緩衝區讓重置按鈕精準對齊下拉選單的底部 🚨
+            st.markdown("<div style='margin-top: 28px;'></div>", unsafe_allow_html=True)
+            if st.button("🔄 重置", use_container_width=True):
+                st.session_state.saved_dept = st.session_state.saved_class = st.session_state.saved_semester = st.session_state.saved_course = "請選擇..."
                 st.session_state.target_course_id = None
-                st.session_state.search_term = ""
-            
-            st.markdown("<div style='margin-top: 15px;'></div>", unsafe_allow_html=True) 
-            st.button("🔄 重置條件", on_click=reset_all, use_container_width=True)
+                st.rerun()
 
-    # ==========================================
-    # 🟪/🟥 右側：圖表區
-    # ==========================================
-    with col_right_panel:
-        
-        # --- 🟪 右上區塊：散點圖 ---
-        with st.container(border=True):
-            st.markdown("<div id='zone-v-scatter' style='position:absolute; top:-10px; left:0; width:1px; height:1px;'></div>", unsafe_allow_html=True)
-            st.markdown("<div style='font-weight:bold; color:#555; margin-bottom:-10px; font-size:1.05rem;'>📈 課程分佈散點圖</div>", unsafe_allow_html=True)
-            
-            if not has_valid_filter:
-                fig_scatter = go.Figure().update_layout(
-                    plot_bgcolor='rgba(0,0,0,0)', 
-                    paper_bgcolor='rgba(0,0,0,0)', 
-                    height=280, 
-                    margin=dict(l=20, r=20, t=20, b=20), 
-                    xaxis=dict(showticklabels=False, showgrid=False, zeroline=False), 
-                    yaxis=dict(showticklabels=False, showgrid=False, zeroline=False),
-                    annotations=[dict(
-                        text="👈 請從左側面板進行篩選，<br>或輸入關鍵字搜尋以載入圖表。",
-                        x=0.5, y=0.5, xref="paper", yref="paper",
-                        showarrow=False,
-                        font=dict(size=14, color="#888888")
-                    )]
-                )
-                st.plotly_chart(fig_scatter, use_container_width=True, key="empty_chart", config={'displayModeBar': False})
+    # 🔲 下方主戰情室
+    col_left, col_right = st.columns([1, 1.4])
+
+    # ------------------------------------------
+    # ⬅️ 左半部：散點圖 (上) 與 討論區 (下)
+    # ------------------------------------------
+    with col_left:
+        # 【左上：散點圖】
+        with st.container(height=330, border=True):
+            st.markdown("<div style='font-weight:bold; color:#555; font-size:1rem;'>📈 課程分佈散點圖</div>", unsafe_allow_html=True)
+            if filtered.empty:
+                st.plotly_chart(go.Figure().update_layout(height=260, plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', xaxis=dict(visible=False), yaxis=dict(visible=False), annotations=[dict(text="請完成上方篩選", x=0.5, y=0.5, showarrow=False)]), use_container_width=True, key="sc_empty")
             else:
-                fig_scatter = px.scatter(filtered, x="難度", y="教學參與性", hover_name="課程名稱", hover_data={"難度": True, "教學參與性": True, "選課代號": True}, custom_data=["選課代號", "課程名稱"])
-                selected_idx = np.where(filtered["課程名稱"] == selected_course)[0].tolist() if selected_course not in ["請選擇...", "先選學期...", "查無結果..."] else None
-                fig_scatter.update_traces(selectedpoints=selected_idx, marker=dict(color='#D9534F', size=13, opacity=0.8, line=dict(width=1, color='white')))
-                fig_scatter.update_layout(
-                    xaxis_title="課程難易度", yaxis_title="教學參與性", 
-                    xaxis=dict(range=[0.5, 5.5], gridcolor='#EFEFEF', fixedrange=True), 
-                    yaxis=dict(range=[0.5, 5.5], gridcolor='#EFEFEF', fixedrange=True), 
-                    plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', 
-                    height=280, 
-                    margin=dict(l=20, r=20, t=30, b=10), clickmode='event+select', dragmode=False
-                )
-                st.plotly_chart(fig_scatter, use_container_width=True, on_select="rerun", selection_mode="points", config={'displayModeBar': False}, key="scatter_chart")
+                fig_scatter = px.scatter(filtered, x="難度", y="教學參與性", hover_name="課程名稱", custom_data=["選課代號", "課程名稱"])
+                selected_idx = np.where(filtered["課程名稱"] == selected_course)[0].tolist() if selected_course != "請選擇..." else None
+                fig_scatter.update_traces(selectedpoints=selected_idx, marker=dict(color='#D9534F', size=14, opacity=0.8, line=dict(width=1, color='white')))
+                fig_scatter.update_layout(height=260, xaxis_title="難度", yaxis_title="參與性", xaxis=dict(range=[0.5, 5.5], gridcolor='#EEE'), yaxis=dict(range=[0.5, 5.5], gridcolor='#EEE'), plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', margin=dict(l=10, r=10, t=10, b=10), clickmode='event+select', dragmode=False)
+                st.plotly_chart(fig_scatter, use_container_width=True, on_select="rerun", selection_mode="points", key="scatter_chart")
 
-        target_course_name = selected_course if selected_course not in ["請選擇...", "先選學期...", "查無結果..."] else None
+        # 【左下：討論區 (原右下)】
+        with st.container(height=330, border=True):
+            st.markdown("<div style='font-weight:bold; color:#555; font-size:1rem;'>💬 選課情報討論區</div>", unsafe_allow_html=True)
+            if st.session_state.target_course_id:
+                c_code = st.session_state.target_course_id
+                c_info = data[data["選課代號"] == c_code].iloc[0]
+                if c_code not in st.session_state.comments_db: st.session_state.comments_db[c_code] = generate_fake_comments(c_code, c_info['難度'], c_info['教學參與性'])
+                for comment in st.session_state.comments_db[c_code]:
+                    st.markdown(f'''<div style="background-color: #F8F6F1; padding: 8px; border-radius: 8px; margin-bottom: 6px; border-left: 4px solid #A3968C;"><span style="font-weight: 800; font-size: 11px;">{comment['user']}</span><br><span style="font-size: 12px; color: #444;">{comment['content']}</span></div>''', unsafe_allow_html=True)
+            else:
+                st.markdown("<div style='color:#aaa; font-size:13px; text-align:center; padding-top:50px;'>等待選擇課程...</div>", unsafe_allow_html=True)
 
-        # --- 🟥 右下區塊：綜合資訊與歷年修課趨勢 ---
-        with st.container(border=True):
-            st.markdown("<div id='zone-v-radar' style='position:absolute; top:-10px; left:0; width:1px; height:1px;'></div>", unsafe_allow_html=True)
-            col_info, col_radar = st.columns([1.1, 1])
-            
-            with col_info:
-                if target_course_name:
-                    course_info = data[data["課程名稱"] == target_course_name].iloc[0]
-                    eng_text = "高參與" if course_info['教學參與性'] >= 4 else ("中參與" if course_info['教學參與性'] >= 3 else "低參與")
-                    diff_text = "高難度" if course_info['難度'] >= 4 else ("中難度" if course_info['難度'] >= 2.5 else "低難度")
-                    
-                    col_title, col_btn_detail = st.columns([5, 3])
-                    with col_title:
-                        st.markdown(f"<div style='background-color: #DCD7D4; padding: 5px 15px; border-radius: 15px; font-weight: bold; font-size: 16px; color: #333; display: inline-block; margin-bottom: 10px; margin-top: 5px;'>{target_course_name}</div>", unsafe_allow_html=True)
-                    with col_btn_detail:
-                        st.button("查看詳細資訊 ➔", key="btn_to_detail", use_container_width=True, on_click=navigate_to, args=("詳細課程", course_info['選課代號'], target_course_name))
-                    
-                    sem_val = course_info.get('學期', '未知')
-                    st.markdown(f"""
-                        <div style="background-color: #EFECE9; border-radius: 12px; padding: 10px 15px; margin-bottom: 10px;">
-                            <p style="margin: 0 0 8px 0; font-size: 14px; color: #555;">📌 選課代號：{course_info['選課代號']} &nbsp;|&nbsp; 🎓 學分數：{course_info.get('學分', course_info.get('學分數', 2))} &nbsp;|&nbsp; 🗓️ {sem_val}</p>
-                            <p style="margin: 0; font-size: 14px; color: #333; font-weight: 700;">授課教師：依校方系統公告</p>
-                        </div>
-                        <div style="background-color: #EFECE9; border-radius: 12px; padding: 10px 15px; margin-bottom: 15px;">
-                            <p style="margin: 3px 0; font-size: 15px; color: #555;">🔥 教學參與性： <strong>{course_info['教學參與性']}/5</strong></p>
-                            <p style="margin: 3px 0; font-size: 15px; color: #555;">💦 課程難易度： <strong>{course_info['難度']}/5</strong></p>
-                            <p style="margin: 3px 0 0 0; font-size: 13px; color: #777;">(位於：{eng_text}/{diff_text}區)</p>
-                        </div>
-                    """, unsafe_allow_html=True)
-                    
-                    c_btn_a, c_btn_b = st.columns(2)
-                    with c_btn_a:
-                        if st.button("❤️ 加入收藏", key="vis_add_fav", use_container_width=True):
-                            c_code = str(course_info['選課代號'])
-                            if any(c['id'] == c_code for c in st.session_state.my_courses): 
-                                st.toast(f"「{target_course_name}」已在清單中！", icon="⚠️")
-                            else:
-                                c_type_raw = str(course_info.get('必選修', '選修')).upper()
-                                c_type = '必修' if c_type_raw == 'M' else '選修'
-                                try: credits = int(float(course_info.get('學分', course_info.get('學分數', 2))))
-                                except: credits = 2
-                                raw_time = str(course_info.get('上課時間', '')).replace(" ", "")
-                                time_slots = []
-                                for match in re.finditer(r'\(?([一二三四五六日])\)?([0-9A-Za-z,\-~]+)', raw_time):
-                                    day, periods_str = match.group(1), match.group(2)
-                                    for part in re.split(r'[,、]', periods_str):
-                                        if '-' in part or '~' in part:
-                                            try:
-                                                s_str, e_str = part.split('-' if '-' in part else '~')
-                                                if s_str.isdigit() and e_str.isdigit():
-                                                    for p in range(int(s_str), int(e_str) + 1): time_slots.append(f"{day}{p}")
-                                                else: time_slots.extend([f"{day}{s_str.upper()}", f"{day}{e_str.upper()}"])
-                                            except: pass 
-                                        else: time_slots.append(f"{day}{int(part)}" if part.isdigit() else f"{day}{part.upper()}")
-                                st.session_state.my_courses.append({"id": c_code, "name": target_course_name, "time": time_slots, "credits": credits, "type": c_type, "enrolled": False})
-                                st.toast(f"已加入收藏！", icon="✨")
-                    with c_btn_b:
-                        st.button("➕ 模擬排課", key="vis_to_sim", use_container_width=True, on_click=navigate_to, args=("我的收藏",))
-                else:
-                    col_title, col_btn_detail = st.columns([5, 3])
-                    with col_title:
-                        st.markdown("<div style='background-color: #E8E2DE; padding: 5px 15px; border-radius: 15px; font-weight: bold; font-size: 16px; color: #999; display: inline-block; margin-bottom: 10px; margin-top: 5px;'>等待選擇課程...</div>", unsafe_allow_html=True)
-                    with col_btn_detail:
-                        st.button("查看詳細資訊 ➔", key="btn_to_detail_empty", use_container_width=True, disabled=True)
-
-                    st.markdown("""
-                        <div style="background-color: #F5F5F5; border-radius: 12px; padding: 10px 15px; margin-bottom: 10px;">
-                            <p style="margin: 0 0 8px 0; font-size: 14px; color: #aaa;">📌 選課代號：--- &nbsp;|&nbsp; 🎓 學分數：--- &nbsp;|&nbsp; 🗓️ ---</p>
-                            <p style="margin: 0; font-size: 14px; color: #aaa; font-weight: 700;">授課教師：---</p>
-                        </div>
-                        <div style="background-color: #F5F5F5; border-radius: 12px; padding: 10px 15px; margin-bottom: 15px;">
-                            <p style="margin: 3px 0; font-size: 15px; color: #aaa;">🔥 教學參與性： - / 5</p><p style="margin: 3px 0; font-size: 15px; color: #aaa;">💦 課程難易度： - / 5</p><p style="margin: 3px 0 0 0; font-size: 13px; color: #aaa;">(位於：---)</p>
-                        </div>
-                    """, unsafe_allow_html=True)
-                    
-                    c_btn_empty_a, c_btn_empty_b = st.columns(2)
-                    with c_btn_empty_a:
-                        st.button("❤️ 加入收藏", key="vis_add_fav_empty", use_container_width=True, disabled=True)
-                    with c_btn_empty_b:
-                        st.button("➕ 模擬排課", key="vis_to_sim_empty", use_container_width=True, disabled=True)
-
-            with col_radar:
-                st.markdown("<div style='font-weight:bold; color:#555; text-align:center; font-size:1rem; margin-bottom: -5px;'>📈 歷年修課趨勢</div>", unsafe_allow_html=True)
+    # ------------------------------------------
+    # ➡️ 右半部：詳細資訊 (上) 與 雙圖表 (下)
+    # ------------------------------------------
+    with col_right:
+        # 【右上：完整課程詳細資訊 (原左下並擴大)】
+        with st.container(height=330, border=True):
+            st.markdown("<div style='font-weight:bold; color:#555; font-size:1rem;'>✨ 課程完整資訊</div>", unsafe_allow_html=True)
+            if st.session_state.target_course_id:
+                c_data = data[data["選課代號"] == st.session_state.target_course_id].iloc[0]
+                st.markdown(f"<div style='background-color: #E2DCD5; padding: 4px 12px; border-radius: 8px; display: inline-block; margin-bottom: 10px; font-weight: bold; color: #222; font-size: 13px;'>[112-上學期] [{c_data['選課代號']}] {c_data['科目簡稱']}</div>", unsafe_allow_html=True)
                 
-                if target_course_name:
-                    trend_df = get_fixed_trend_data(str(course_info['選課代號']))
-                    fig_trend = go.Figure()
-                    fig_trend.add_trace(go.Scatter(x=trend_df.Year, y=trend_df.AvgScore, name='平均成績', line=dict(color='#C85A5A', width=2), yaxis='y1')) 
-                    fig_trend.add_trace(go.Scatter(x=trend_df.Year, y=trend_df.Students, name='修課人數', line=dict(color='#4A7C59', width=2), yaxis='y2')) 
+                # 內部捲動區：放置大量欄位
+                with st.container(height=220, border=False):
+                    col_info1, col_info2 = st.columns(2)
+                    with col_info1:
+                        st.markdown(f"**選課代號：** {c_data['選課代號']}")
+                        st.markdown(f"**開課班級：** {c_data['開課班級']}")
+                        st.markdown(f"**科目簡稱：** {c_data['科目簡稱']}")
+                        st.markdown(f"**學分數：** {c_data.get('學分', 2)}")
+                        st.markdown(f"**必選修：** {'必修' if str(c_data['必選修']).upper() == 'M' else '選修'}")
+                    with col_info2:
+                        st.markdown(f"**上課時間：** (一)09-11")
+                        st.markdown(f"**EMI註記：** N")
+                        st.markdown(f"**授課方式：** 實體上課")
+                        st.markdown(f"**授課語言：** 中文")
+                        st.markdown(f"**系所：** {c_data['系所']}")
                     
-                    fig_trend.update_layout(
-                        margin=dict(l=30, r=30, t=10, b=10), 
-                        height=240, 
-                        paper_bgcolor='rgba(0,0,0,0)', 
-                        plot_bgcolor='rgba(0,0,0,0)',
-                        legend=dict(orientation="h", y=1.2, x=0.5, xanchor="center", font=dict(size=10)),
-                        xaxis=dict(tickfont=dict(size=10), gridcolor='#EEE'),
-                        yaxis=dict(range=[0, 100], tickfont=dict(size=10)),
-                        yaxis2=dict(overlaying='y', side='right', range=[0, 150], tickfont=dict(size=10)),
-                        dragmode=False
-                    )
-                    st.plotly_chart(fig_trend, use_container_width=True, theme=None, config={'staticPlot': True})
-                else:
-                    fig_trend_empty = go.Figure().update_layout(
-                        height=240, 
-                        paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', 
-                        xaxis=dict(visible=False), yaxis=dict(visible=False), 
-                        annotations=[dict(text="等待選擇課程...", x=0.5, y=0.5, showarrow=False, font=dict(color="#aaa"))]
-                    )
-                    st.plotly_chart(fig_trend_empty, use_container_width=True, theme=None, config={'staticPlot': True})
-
-elif st.session_state.current_page == "詳細課程":
-    # ==========================================
-    # 👑 [詳細課程頁面專屬 CSS] 
-    # ==========================================
-    st.markdown("""
-    <style>
-        html, body, [data-testid="stAppViewContainer"] {
-            overflow: hidden !important;
-        }
-        .block-container {
-            height: 94vh !important; 
-            max-width: 96% !important; 
-            padding: 1.5rem 0 0.5rem 0 !important; 
-            display: flex !important;
-            flex-direction: column !important;
-            overflow: hidden !important;
-        }
-        .main-content-area {
-            flex: 1 1 auto;
-            display: flex;
-            gap: 20px;
-            min-height: 0; 
-            margin-bottom: 10px;
-        }
-        .left-info-col {
-            flex: 1; 
-            display: flex;
-            flex-direction: column;
-            background-color: #FFFFFF;
-            border: 1px solid #EAE6E3;
-            border-radius: 20px;
-            padding: 20px;
-            overflow: hidden; 
-        }
-        .scrollable-info {
-            flex: 1;
-            overflow-y: auto;
-            padding-right: 10px;
-        }
-        .right-dash-col {
-            flex: 1; 
-            display: flex;
-            flex-direction: column;
-            gap: 15px;
-            overflow: hidden;
-        }
-        .top-chart-box {
-            flex: 0 0 45%; 
-            background-color: #FFFFFF;
-            border: 1px solid #EAE6E3;
-            border-radius: 20px;
-            padding: 15px;
-            overflow: hidden;
-        }
-        .bottom-comment-box {
-            flex: 1; 
-            background-color: #FFFFFF;
-            border: 1px solid #EAE6E3;
-            border-radius: 20px;
-            padding: 15px;
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
-        }
-        .scrollable-comments {
-            flex: 1;
-            overflow-y: auto;
-            margin-bottom: 10px;
-            padding-right: 5px;
-        }
-        .fixed-footer {
-            flex: 0 0 auto;
-            background: transparent;
-            padding: 10px 0;
-            border-top: 1px solid #DCD5CE;
-        }
-        ::-webkit-scrollbar { width: 5px; }
-        ::-webkit-scrollbar-thumb { background-color: #E2DCD5; border-radius: 10px; }
-    </style>
-    """, unsafe_allow_html=True)
-
-    col_header_left, col_header_right = st.columns([5, 1])
-    with col_header_left:
-        st.markdown("<h2 style='color: #333; font-weight: 800; margin: 0;'>📖 課程詳細資訊</h2>", unsafe_allow_html=True)
-    with col_header_right:
-        st.button("🔙 返回前頁", use_container_width=True, on_click=navigate_to, args=("視覺化介面",))
-
-    target_id = st.session_state.get('target_course_id')
-    target_name = st.session_state.get('saved_course', "請選擇...")
-    matches = pd.DataFrame()
-    if target_id and not data.empty:
-        matches = data[data['選課代號'].astype(str) == str(target_id)]
-    if matches.empty and target_name not in ["請選擇...", "先選學期...", "查無結果..."] and not data.empty:
-        matches = data[data['課程名稱'].astype(str).str.contains(target_name, na=False, regex=False)]
-
-    if matches.empty:
-        st.warning("⚠️ 請先選擇一門課程後，再查看詳細資訊。")
-    else:
-        course_data = matches.iloc[0]
-        current_code = str(course_data['選課代號'])
-        year_str = str(course_data.get('yms_year', '未知'))
-        sem_str = str(course_data.get('學期', '未知'))
-        name_str = str(course_data.get('課程名稱', target_name))
-        selected_uid = f"[{year_str}-{sem_str}] [{current_code}] {name_str}"
-        
-        # ✨ 智慧載入生成假留言
-        if current_code not in st.session_state.comments_db: 
-            st.session_state.comments_db[current_code] = generate_fake_comments(current_code, course_data.get('難度', 3.0), course_data.get('教學參與性', 3.0))
-        current_comments = st.session_state.comments_db[current_code]
-
-        main_col_left, main_col_right = st.columns(2)
-
-        with main_col_left:
-            with st.container(border=True):
-                st.markdown("<div id='zone-d-info'></div>", unsafe_allow_html=True)
-                st.markdown(f"#### 📌 課程完整資訊")
-                st.markdown(f"<div style='background-color: #E2DCD5; padding: 4px 12px; border-radius: 8px; display: inline-block; margin-bottom: 15px; font-weight: bold; color: #222; font-size: 14px;'>{selected_uid}</div>", unsafe_allow_html=True)
+                    st.markdown(f"""<div style='background-color: #F8F6F1; padding: 10px; border-radius: 8px; margin-top:10px;'><b>📖 課程描述_中：</b><br><span style='font-size:13px;'>本課程將介紹{c_data['科目簡稱']}之核心理論與實務應用，內容包含模型推導、數據分析與實際案例演練。</span></div>""", unsafe_allow_html=True)
+                    st.markdown(f"""<div style='background-color: #F8F6F1; padding: 10px; border-radius: 8px; margin-top:8px;'><b>📖 課程描述_英：</b><br><span style='font-size:13px;'>This course provides an overview of {c_data['科目簡稱']} through theory and practice, focusing on data-driven decision making.</span></div>""", unsafe_allow_html=True)
                 
-                with st.container(height=520, border=False):
-                    target_cols = ['選課代號', '開課班級', '科目簡稱', '學分數', '學分', '必選修', '上課時間', 'EMI註記', '授課方式', '授課語言', '系所', '課程描述_中', '課程描述_英']
-                    for col_name in target_cols:
-                        if col_name not in course_data.index: continue
-                        val = course_data[col_name]
-                        if col_name == '必選修':
-                            val = '必修' if str(val).upper() == 'M' else '選修'
-                        
-                        if isinstance(val, str) and len(val) > 25:
-                            st.markdown(f"<div style='margin-bottom: 12px; background-color: #F8F6F1; padding: 12px; border-radius: 10px; border: 1px solid #E2DCD5;'><span style='font-weight: 800; color: #444;'>📑 {col_name}：</span><br><span style='color: #222; font-size: 0.95rem; line-height: 1.5;'>{val}</span></div>", unsafe_allow_html=True)
-                        else:
-                            st.markdown(f"<div style='margin-bottom: 8px;'><span style='font-weight: 600; color: #555;'>{col_name}：</span> <span style='color: #111; font-weight: 800;'>{val}</span></div>", unsafe_allow_html=True)
-
-        with main_col_right:
-            with st.container(border=True):
-                st.markdown("#### 📊 去年修課成績分佈")
-                dist_df = get_fixed_grade_dist_data(current_code, course_data.get('難度', 3.0))
-                
-                fig_dist = go.Figure(data=[
-                    go.Bar(
-                        x=dist_df['Range'], 
-                        y=dist_df['Count'], 
-                        name='學期成績',
-                        marker_color='rgba(234, 242, 248, 0.8)', 
-                        marker_line_color='rgba(133, 172, 203, 1)', 
-                        marker_line_width=2
-                    )
-                ])
-                fig_dist.update_layout(
-                    margin=dict(l=40, r=40, t=30, b=30), 
-                    height=200, 
-                    paper_bgcolor='rgba(0,0,0,0)', 
-                    plot_bgcolor='rgba(0,0,0,0)',
-                    legend=dict(orientation="h", y=1.2, x=0.5, xanchor="center", font=dict(size=11)),
-                    xaxis=dict(tickfont=dict(size=10), gridcolor='#EEE'),
-                    yaxis=dict(tickfont=dict(size=10), gridcolor='#EEE', title="修課人數"),
-                    dragmode=False
-                )
-                st.plotly_chart(fig_dist, use_container_width=True, config={'staticPlot': True})
-
-            with st.container(border=True):
-                st.markdown("#### 💬 討論區")
-                with st.container(height=200, border=False):
-                    if not current_comments: 
-                        st.caption("目前尚無留言...")
-                    else:
-                        for comment in current_comments:
-                            st.markdown(f'''<div style="background-color: #F8F6F1; padding: 10px; border-radius: 8px; margin-bottom: 8px; border-left: 4px solid #A3968C;"><span style="font-weight: 800; font-size: 13px;">{comment['user']}</span><br><span style="font-size: 13px; color: #444;">{comment['content']}</span></div>''', unsafe_allow_html=True)
-                
-                with st.form(key='comment_form', clear_on_submit=True):
-                    c_input, c_btn = st.columns([4, 1])
-                    new_comment = c_input.text_input("輸入心得...", label_visibility="collapsed")
-                    if c_btn.form_submit_button("🚀") and new_comment:
-                        st.session_state.comments_db[current_code].append({"user": st.session_state.get("name", "王小明"), "content": new_comment})
-                        st.rerun()
-
-        st.write("") 
-        col_f1, col_f2, col_f3 = st.columns(3)
-        with col_f1:
-            if st.button("❤️ 加入收藏", key="btn_fav_detail", use_container_width=True):
-                if any(c['id'] == current_code for c in st.session_state.my_courses): 
-                    st.toast("已在收藏中！", icon="⚠️")
-                else:
-                    c_type_raw = str(course_data.get('必選修', '選修')).upper()
-                    c_type = '必修' if c_type_raw == 'M' else '選修'
-                    try: credits = int(float(course_data.get('學分', course_data.get('學分數', 2))))
-                    except: credits = 2
-                    raw_time = str(course_data.get('上課時間', '')).replace(" ", "")
-                    time_slots = []
-                    for match in re.finditer(r'\(?([一二三四五六日])\)?([0-9A-Za-z,\-~]+)', raw_time):
-                        day, periods_str = match.group(1), match.group(2)
-                        for part in re.split(r'[,、]', periods_str):
-                            if '-' in part or '~' in part:
-                                try:
-                                    s_str, e_str = part.split('-' if '-' in part else '~')
-                                    if s_str.isdigit() and e_str.isdigit():
-                                        for p in range(int(s_str), int(e_str) + 1): time_slots.append(f"{day}{p}")
-                                    else: time_slots.extend([f"{day}{s_str.upper()}", f"{day}{e_str.upper()}"])
-                                except: pass 
-                            else: time_slots.append(f"{day}{int(part)}" if part.isdigit() else f"{day}{part.upper()}")
-                    
-                    st.session_state.my_courses.append({"id": current_code, "name": name_str, "time": time_slots, "credits": credits, "type": c_type, "enrolled": False})
+                if st.button("❤️ 加入收藏", key="main_fav", use_container_width=True):
                     st.toast("已加入收藏！", icon="✨")
-        with col_f2:
-            st.button("➕ 模擬排課", key="btn_sim_detail", use_container_width=True, on_click=navigate_to, args=("我的收藏",))
-        with col_f3:
-            st.link_button("🔗 學校選課系統", url="https://course.fcu.edu.tw/", use_container_width=True)
+            else:
+                st.info("請從左側點選課程以載入詳細規格。")
 
+        # 【右下：雙小圖表並排 (原右上)】
+        with st.container(height=330, border=True):
+            st.markdown("<div id='zone-charts' style='display:none;'></div>", unsafe_allow_html=True)
+            cc1, cc2 = st.columns(2)
+            if st.session_state.target_course_id:
+                c_id = st.session_state.target_course_id
+                # 左圖：長條圖
+                with cc1:
+                    st.markdown("<div style='font-weight:bold; color:#555; text-align:center; font-size:0.9rem;'>📊 去年成績分佈</div>", unsafe_allow_html=True)
+                    dist_df = get_fixed_grade_dist_data(c_id, 3.0)
+                    fig_dist = go.Figure(data=[go.Bar(x=dist_df['Range'], y=dist_df['Count'], marker_color='#85ACCB')])
+                    fig_dist.update_layout(height=230, margin=dict(l=10, r=10, t=10, b=10), paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', xaxis=dict(tickfont=dict(size=8)), yaxis=dict(tickfont=dict(size=8)))
+                    st.plotly_chart(fig_dist, use_container_width=True, config={'staticPlot': True}, key="bar_sub")
+                # 右圖：折線圖
+                with cc2:
+                    st.markdown("<div style='font-weight:bold; color:#555; text-align:center; font-size:0.9rem;'>📈 歷年修課趨勢</div>", unsafe_allow_html=True)
+                    trend_df = get_fixed_trend_data(c_id)
+                    fig_trend = go.Figure()
+                    fig_trend.add_trace(go.Scatter(x=trend_df.Year, y=trend_df.AvgScore, name='平均', line=dict(color='#C85A5A', width=2)))
+                    fig_trend.add_trace(go.Scatter(x=trend_df.Year, y=trend_df.Students, name='人數', line=dict(color='#4A7C59', width=2), yaxis='y2'))
+                    fig_trend.update_layout(height=230, margin=dict(l=10, r=10, t=10, b=10), paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', showlegend=False, xaxis=dict(tickfont=dict(size=8)), yaxis=dict(range=[0,100], tickfont=dict(size=8)), yaxis2=dict(overlaying='y', side='right', range=[0,150], tickfont=dict(size=8)))
+                    st.plotly_chart(fig_trend, use_container_width=True, config={'staticPlot': True}, key="line_sub")
+            else:
+                st.plotly_chart(go.Figure().update_layout(height=230, plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', xaxis=dict(visible=False), yaxis=dict(visible=False)), use_container_width=True, key="empty_sub")
+
+# ==========================================
+# 6. 我的收藏頁面 (略)
+# ==========================================
 elif st.session_state.current_page == "我的收藏":
-    # ==========================================
-    # 👑 [我的收藏 - 原生安全鎖定版 CSS] 
-    # ==========================================
     st.markdown("""
     <style>
-        /* --- 1. 全局鎖定 (Global Lock)：鎖死最外層，不讓整個網頁滑動 --- */
-        html, body, [data-testid="stAppViewContainer"] {
-            overflow: hidden !important;
-        }
-        .block-container {
-            height: 94vh !important; 
-            max-width: 96% !important; 
-            padding: 1.5rem 0 1rem 0 !important; 
-            display: flex !important;
-            flex-direction: column !important;
-            overflow: hidden !important; /* 確保外層絕對不出現滾動條 */
-        }
-        
-        /* 讓主垂直區塊變成 Flex 容器，穩定撐開高度 */
-        div[data-testid="stVerticalBlock"]:first-of-type {
-            display: flex; flex-direction: column; height: 100%;
-        }
-
-        .timetable-full {
-            width: 100%;
-            height: 450px !important; 
-            border-collapse: collapse;
-            table-layout: fixed;
-            background-color: white;
-        }
-        .timetable-full th, .timetable-full td {
-            border: 1px solid #EAE6E3;
-            text-align: center;
-            vertical-align: middle;
-            font-size: 11px;
-            height: 45px !important; 
-        }
+        html, body, [data-testid="stAppViewContainer"] { overflow: hidden !important; }
+        .block-container { height: 96vh !important; max-width: 98% !important; padding: 1.5rem 1rem 1rem 1rem !important; display: flex !important; flex-direction: column !important; overflow: hidden !important; }
+        div[data-testid="stVerticalBlock"]:first-of-type { display: flex; flex-direction: column; height: 100%; }
+        .timetable-full { width: 100%; height: 450px !important; border-collapse: collapse; table-layout: fixed; background-color: white; }
+        .timetable-full th, .timetable-full td { border: 1px solid #EAE6E3; text-align: center; vertical-align: middle; font-size: 11px; height: 45px !important; }
         .timetable-full th { background-color: #F8F6F4; font-weight: 800; }
-        .timetable-full td.filled {
-            background-color: #DCD7D4; color: #222; font-weight: 900;
-            border-radius: 4px; font-size: 11px !important; line-height: 1.1;
-        }
-        .timetable-full td.conflict {
-            background-color: #FADBD8; color: #C0392B; font-weight: bold; font-size: 11px !important;
-        }
-
-        .fav-card {
-            background-color: #F8F6F4; border: 1px solid #EAE6E3;
-            border-radius: 10px; padding: 6px 12px;  
-            margin-bottom: 6px; display: flex; align-items: center; min-height: 40px;   
-        }
-        .fav-enrolled {
-            border-left: 6px solid #4A7C59 !important; background-color: #F0F4F0 !important;
-        }
-
-        [data-testid="column"]:nth-child(1) .stButton>button {
-            height: 32px !important; min-height: 32px !important;
-            padding: 2px 10px !important; font-size: 0.8rem !important;
-        }
-
-        /* --- 2. 內層解放 (Local Scroll)：取代原本的暴力隱藏 --- */
-        [data-testid="stVerticalBlockBorderWrapper"]:has(.timetable-full) > div > div,
-        [data-testid="stVerticalBlockBorderWrapper"]:has(.fav-card) > div > div {
-            overflow-y: auto !important; 
-            overscroll-behavior: contain !important; 
-            padding-right: 5px; 
-        }
-
+        .timetable-full td.filled { background-color: #DCD7D4; color: #222; font-weight: 900; border-radius: 4px; font-size: 11px !important; line-height: 1.1; }
+        .timetable-full td.conflict { background-color: #FADBD8; color: #C0392B; font-weight: bold; font-size: 11px !important; }
+        .fav-card { background-color: #F8F6F4; border: 1px solid #EAE6E3; border-radius: 10px; padding: 6px 12px; margin-bottom: 6px; display: flex; align-items: center; min-height: 40px; }
+        .fav-enrolled { border-left: 6px solid #4A7C59 !important; background-color: #F0F4F0 !important; }
+        [data-testid="column"]:nth-child(1) .stButton>button { height: 32px !important; min-height: 32px !important; padding: 2px 10px !important; font-size: 0.8rem !important; }
+        [data-testid="stVerticalBlockBorderWrapper"]:has(.timetable-full) > div > div, [data-testid="stVerticalBlockBorderWrapper"]:has(.fav-card) > div > div { overflow-y: auto !important; overscroll-behavior: contain !important; padding-right: 5px; }
         ::-webkit-scrollbar { width: 5px; }
         ::-webkit-scrollbar-thumb { background-color: #E2DCD5; border-radius: 10px; }
-
-        .block-container [data-testid="stVerticalBlock"] > div { padding: 0 !important; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -1497,7 +392,6 @@ elif st.session_state.current_page == "我的收藏":
             else:
                 for idx, course in enumerate(all_favorites):
                     is_enrolled = course["enrolled"]
-                    
                     is_conf = False
                     if is_enrolled:
                         for t in course["time"]:
@@ -1565,7 +459,6 @@ elif st.session_state.current_page == "我的收藏":
             st.markdown("<h4 style='text-align: center; margin: 5px 0 10px 0;'>📅 預覽課表</h4>", unsafe_allow_html=True)
 
             display_periods = [p for p in all_periods if p in ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10"] or any(schedule_matrix[d][p] for d in days)]
-            
             display_days = ["一", "二", "三", "四", "五"]
             for d in ["六", "日"]:
                 if any(schedule_matrix[d][p] for p in display_periods):
@@ -1576,120 +469,11 @@ elif st.session_state.current_page == "我的收藏":
                 table_html += f"<tr><td style='font-weight:bold; background:#F8F6F4;'>{p}</td>"
                 for d in display_days:
                     cells = schedule_matrix[d][p]
-                    if not cells:
-                        table_html += "<td></td>"
+                    if not cells: table_html += "<td></td>"
                     elif len(cells) == 1:
                         name = cells[0]['name'][:7] + ".." if len(cells[0]['name']) > 7 else cells[0]['name']
                         table_html += f"<td class='filled'>{name}</td>"
-                    else:
-                        table_html += f"<td class='conflict'>!!!</td>"
+                    else: table_html += f"<td class='conflict'>!!!</td>"
                 table_html += "</tr>"
             table_html += "</table>"
-            
             st.markdown(table_html, unsafe_allow_html=True)
-
-elif st.session_state.current_page == "個人設定":
-    st.markdown("<h2 style='margin-bottom: 20px; color: #333; font-weight: 800;'>👤 個人設定</h2>", unsafe_allow_html=True)
-
-    def reset_all_prefs():
-        for k in st.session_state.prefs["prof"]: st.session_state.prefs["prof"][k] = False
-        for k in st.session_state.prefs["cross"]: st.session_state.prefs["cross"][k] = False
-        for k in st.session_state.prefs["course"]: st.session_state.prefs["course"][k] = False
-        st.session_state.prefs["workload"] = "適中 😊"
-        st.session_state.show_uploader = False
-
-    with st.container(border=True):
-        col_header_left, col_header_right = st.columns([5, 1])
-        with col_header_left: st.markdown("### 基本資料")
-        with col_header_right:
-            if st.button("✏️ 編輯", use_container_width=True): st.session_state.editing = True
-                
-        col1, col2 = st.columns([1, 3])
-        with col1:
-            st.image(st.session_state.avatar, width=120)
-            if st.button("📸 更換頭像", use_container_width=True):
-                st.session_state.show_uploader = not st.session_state.show_uploader
-                st.rerun()
-                
-            if st.session_state.show_uploader:
-                uploaded_file = st.file_uploader("上傳新頭像", type=["jpg", "png", "jpeg"], label_visibility="collapsed")
-                if uploaded_file is not None:
-                    st.session_state.avatar = uploaded_file.getvalue()
-                    st.session_state.show_uploader = False
-                    st.rerun()
-
-        with col2:
-            if st.session_state.editing:
-                with st.form("edit_profile"):
-                    name_input = st.text_input("姓名", value=st.session_state.name)
-                    dept_input = st.text_input("系級", value=st.session_state.department)
-                    year_input = st.text_input("年級", value=st.session_state.year)
-                    col_form1, col_form2 = st.columns(2)
-                    with col_form1: submitted = st.form_submit_button("💾 儲存")
-                    with col_form2: cancel = st.form_submit_button("❌ 取消")
-                    if submitted:
-                        st.session_state.name, st.session_state.department, st.session_state.year, st.session_state.editing = name_input, dept_input, year_input, False
-                        st.rerun()
-                    if cancel:
-                        st.session_state.editing = False
-                        st.rerun()
-            else:
-                st.markdown(f"#### {st.session_state.name}")
-                st.write(f"**🎓 系級：** {st.session_state.department}")
-                st.write(f"**📚 年級：** {st.session_state.year}")
-            
-            st.markdown("<hr style='margin: 15px 0; border-color: #EAE6E3;'>", unsafe_allow_html=True)
-            
-            current_enrolled_req = sum(c['credits'] for c in st.session_state.my_courses if c.get('enrolled', False) and c['type'] == '必修')
-            current_enrolled_opt = sum(c['credits'] for c in st.session_state.my_courses if c.get('enrolled', False) and c['type'] != '必修')
-            req_credits = 55 + current_enrolled_req
-            opt_credits = 30 + current_enrolled_opt
-            total_creds = req_credits + opt_credits
-            
-            st.write(f"**🎓 畢業門檻進度 (目前累積 {total_creds} / 128 學分)：**")
-            col_grad1, col_grad2 = st.columns(2)
-            with col_grad1: 
-                st.write(f"**必修 ({req_credits} / 72)**")
-                st.progress(min(req_credits / 72, 1.0))
-            with col_grad2: 
-                st.write(f"**選修 ({opt_credits} / 56)**")
-                st.progress(min(opt_credits / 56, 1.0))
-
-    with st.container(border=True):
-        st.markdown("### ⭐ 興趣與跨域探索")
-        st.caption("下列選項將影響系統為您推薦的智能排課結果")
-        col_interest_left, col_interest_right = st.columns(2)
-        with col_interest_left:
-            st.markdown("##### 專業領域 (系內課群)")
-            for field in st.session_state.prefs["prof"].keys(): 
-                st.session_state.prefs["prof"][field] = st.checkbox(field, value=st.session_state.prefs["prof"][field])
-                
-        with col_interest_right:
-            st.markdown("##### 跨域/通識偏好 (向度分類)")
-            for field in st.session_state.prefs["cross"].keys(): 
-                st.session_state.prefs["cross"][field] = st.checkbox(field, value=st.session_state.prefs["cross"][field])
-
-    with st.container(border=True):
-        st.markdown("### ⚙️ 課程偏好設定")
-        col_pref1, col_pref2 = st.columns(2)
-        with col_pref1:
-            st.write("**偏好的作業負擔程度：**")
-            workload_options = ["輕鬆 😌", "適中 😊", "充實 💪", "極具挑戰 🔥"]
-            idx = workload_options.index(st.session_state.prefs["workload"])
-            st.session_state.prefs["workload"] = st.radio("選擇作業負擔程度", workload_options, index=idx, label_visibility="collapsed", horizontal=True)
-            st.caption(f"目前狀態：{st.session_state.prefs['workload']}")
-            
-        with col_pref2:
-            st.write("**課程類型偏好：**")
-            course_types = ["理論課", "實驗課", "線上課程", "混合制"]
-            cols_type = st.columns(4)
-            for i, course in enumerate(course_types):
-                with cols_type[i]: 
-                    st.session_state.prefs["course"][course] = st.checkbox(course, value=st.session_state.prefs["course"][course])
-
-    st.write("") 
-    col_save1, col_save2, col_save3 = st.columns([1, 1, 2])
-    with col_save1:
-        if st.button("💾 儲存所有設定", use_container_width=True): st.success("✅ 設定已存檔！")
-    with col_save2:
-        if st.button("🔄 重置偏好", on_click=reset_all_prefs, use_container_width=True): st.warning("⚠️ 已重置預設興趣與課程偏好")
