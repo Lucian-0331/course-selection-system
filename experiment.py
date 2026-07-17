@@ -110,30 +110,70 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ==========================================
-# 2. 核心資料與演算法
+# 2. 核心資料與演算法 (🚀 最終完美版：精準類別篩選)
 # ==========================================
-@st.cache_data(ttl=3600)
-def load_data():
+import os
+
+url_params = st.query_params
+course_type = url_params.get("course", "new_ed")
+session_key = f"sampled_courses_{course_type}"
+
+if session_key not in st.session_state:
     try:
-        with sqlite3.connect('courses.db', timeout=10) as conn:
-            df = pd.read_sql_query("SELECT * FROM official_courses ORDER BY 選課代號", conn)
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        db_path = os.path.join(current_dir, '0610-course.db')
+
+        with sqlite3.connect(db_path, timeout=10) as conn:
+            # 動態抓取資料表名稱
+            cursor = conn.cursor()
+            cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%';")
+            tables = cursor.fetchall()
+            
+            if not tables:
+                raise ValueError(f"連線成功，但 {db_path} 裡面找不到任何資料表！")
+            
+            actual_table_name = tables[0][0]
+            
+            # 🔍 根據你提供的真實類別進行精準篩選！(使用 LIKE 避免隱藏空白字元干擾)
+            if course_type == "new_ed":
+                # 篩選：一般通識
+                query = f'SELECT * FROM "{actual_table_name}" WHERE 課程類別 LIKE \'%一般通識%\' ORDER BY RANDOM() LIMIT 8'
+            elif course_type == "new_pro":
+                # 篩選：資訊類通識
+                query = f'SELECT * FROM "{actual_table_name}" WHERE 課程類別 LIKE \'%資訊類通識%\' ORDER BY RANDOM() LIMIT 8'
+            else:
+                query = f'SELECT * FROM "{actual_table_name}" ORDER BY RANDOM() LIMIT 8'
+                
+            df = pd.read_sql_query(query, conn)
+
+    except Exception as e:
+        st.error(f"⚠️ 資料庫讀取失敗！錯誤訊息: {e}")
+        df = pd.DataFrame()
+
+    # 🚨 核心安全防護 (空資料防護，同步新增「評分標準」欄位)
+    if df.empty:
+        df = pd.DataFrame(columns=['選課代號', '配當系所.1', '開課班級簡稱', '科目簡稱', 'yms_smester', '系所', '開課班級', '課程名稱', '學期', '教學參與性', '難度', '十八週進度', '評分標準'])
+        df.loc[0] = ['無', '請選擇...', '請選擇...', '請選擇...', '1', '請選擇...', '請選擇...', '請選擇...', '上學期', 3.0, 3.0, '{}', '{}']
+    else:
+        # 進行欄位轉換
         df['系所'] = df['配當系所.1'].fillna('未知系所')
         df['開課班級'] = df['開課班級簡稱'].fillna('未知班級')
-        df['課程名稱'] = df['科目簡稱'] + " (" + df['開課班級'] + ")"
+        df['課程名稱'] = df['科目簡稱'].astype(str) + " (" + df['開課班級'] + ")"
+
         def map_semester(x):
             x_str = str(x).strip()
             return '上學期' if x_str in ['1', '1.0'] else ('下學期' if x_str in ['2', '2.0'] else '(無)')
+        
         df['學期'] = df['yms_smester'].apply(map_semester)
         df = df.drop_duplicates(subset=['選課代號', '學期']).reset_index(drop=True)
         
         np.random.seed(42)
         df['教學參與性'] = np.random.uniform(2.5, 5.0, size=len(df)).round(1)
         df['難度'] = np.random.uniform(2.0, 5.0, size=len(df)).round(1)
-        return df, {}
-    except Exception as e:
-        return pd.DataFrame(), {}
+        
+    st.session_state[session_key] = df
 
-data, _ = load_data()
+data = st.session_state[session_key]
 
 @st.cache_data
 def get_fixed_trend_data(course_code):
@@ -205,19 +245,23 @@ if st.session_state.current_page == "視覺化介面":
     st.markdown("""<style>html, body, [data-testid="stAppViewContainer"] { overflow: hidden !important; } .block-container { max-width: 98% !important; padding: 1rem 1rem !important; }</style>""", unsafe_allow_html=True)
     st.markdown("<h2 style='color: #333; font-weight: 800; margin-bottom: 5px; margin-top: -15px;'>📊 視覺化分析中心</h2>", unsafe_allow_html=True)
 
-    # 🟦 頂部過濾列
+   # 🟦 頂部過濾列
     with st.container(border=True):
         col_f1, col_f2, col_f3, col_f4, col_f5 = st.columns([1.2, 1.2, 1.2, 2.5, 0.8])
+        
         dept_options = ["請選擇..."] + sorted(data["系所"].unique().tolist())
-        dept = col_f1.selectbox("📂 1. 系所", dept_options, index=dept_options.index(st.session_state.saved_dept) if st.session_state.saved_dept in dept_options else 0)
+        # 實驗控制：自動鎖定第一個真實選項 (index=1)，並加入 disabled=True 讓受測者無法點擊
+        dept = col_f1.selectbox("📂 1. 系所", dept_options, index=1 if len(dept_options) > 1 else 0, disabled=True)
         st.session_state.saved_dept = dept
         
         class_options = ["請選擇..."] + sorted(data[data["系所"]==dept]["開課班級"].unique().tolist()) if dept != "請選擇..." else ["請選擇..."]
-        class_sel = col_f2.selectbox("🏷️ 2. 班級", class_options, index=class_options.index(st.session_state.saved_class) if st.session_state.saved_class in class_options else 0)
+        # 實驗控制：自動鎖定並關閉點擊
+        class_sel = col_f2.selectbox("🏷️ 2. 班級", class_options, index=1 if len(class_options) > 1 else 0, disabled=True)
         st.session_state.saved_class = class_sel
         
         sem_options = ["請選擇..."] + sorted(data[(data["系所"]==dept) & (data["開課班級"]==class_sel)]["學期"].unique().tolist()) if class_sel != "請選擇..." else ["請選擇..."]
-        semester_sel = col_f3.selectbox("🗓️ 3. 學期", sem_options, index=sem_options.index(st.session_state.saved_semester) if st.session_state.saved_semester in sem_options else 0)
+        # 實驗控制：自動鎖定並關閉點擊
+        semester_sel = col_f3.selectbox("🗓️ 3. 學期", sem_options, index=1 if len(sem_options) > 1 else 0, disabled=True)
         st.session_state.saved_semester = semester_sel
         
         filtered = data[(data["系所"]==dept) & (data["開課班級"]==class_sel) & (data["學期"]==semester_sel)] if semester_sel != "請選擇..." else pd.DataFrame()
@@ -230,6 +274,7 @@ if st.session_state.current_page == "視覺化介面":
             st.session_state.target_course_id = curr_sel["points"][0]["customdata"][0]
             st.session_state.saved_course = curr_sel["points"][0]["customdata"][1]
 
+        # 🚨 目標課程保持開放 (不加 disabled)，因為受測者還需要透過這裡或左側圖表來選課
         selected_course = col_f4.selectbox("🎯 4. 目標課程", course_options, index=course_options.index(st.session_state.saved_course) if st.session_state.saved_course in course_options else 0)
         if selected_course != "請選擇...":
             st.session_state.saved_course = selected_course
@@ -278,7 +323,7 @@ if st.session_state.current_page == "視覺化介面":
     # ➡️ 右半部：詳細資訊 (上) 與 雙圖表 (下)
     # ------------------------------------------
     with col_right:
-        # 【右上：完整課程詳細資訊 (原左下並擴大)】
+      # 【右上：完整課程詳細資訊 (原左下並擴大)】
         with st.container(height=330, border=True):
             st.markdown("<div style='font-weight:bold; color:#555; font-size:1rem;'>✨ 課程完整資訊</div>", unsafe_allow_html=True)
             if st.session_state.target_course_id:
@@ -301,8 +346,70 @@ if st.session_state.current_page == "視覺化介面":
                         st.markdown(f"**授課語言：** 中文")
                         st.markdown(f"**系所：** {c_data['系所']}")
                     
-                    st.markdown(f"""<div style='background-color: #F8F6F1; padding: 10px; border-radius: 8px; margin-top:10px;'><b>📖 課程描述_中：</b><br><span style='font-size:13px;'>本課程將介紹{c_data['科目簡稱']}之核心理論與實務應用，內容包含模型推導、數據分析與實際案例演練。</span></div>""", unsafe_allow_html=True)
+                    st.markdown(f"""<div style='background-color: #F8F6F1; padding: 10px; border-radius: 8px; margin-top:10px;'><b>📖 課程描述_中：</b><br><span style='font-size:13px;'>本課程將介紹{c_data['科目簡稱']}之核心理論與實務應用，內容包含模型推推導、數據分析與實際案例演練。</span></div>""", unsafe_allow_html=True)
                     st.markdown(f"""<div style='background-color: #F8F6F1; padding: 10px; border-radius: 8px; margin-top:8px;'><b>📖 課程描述_英：</b><br><span style='font-size:13px;'>This course provides an overview of {c_data['科目簡稱']} through theory and practice, focusing on data-driven decision making.</span></div>""", unsafe_allow_html=True)
+                    
+                    # 🚀 新增：評分標準動態渲染 (修復 Markdown 縮排判定成程式碼的問題)
+                    if '評分標準' in c_data:
+                        grading_raw = c_data['評分標準']
+                        grading_dict = {}
+                        if pd.notna(grading_raw) and str(grading_raw).strip() != "":
+                            try:
+                                if isinstance(grading_raw, dict):
+                                    grading_dict = grading_raw
+                                else:
+                                    clean_grading = str(grading_raw).replace("'", '"')
+                                    grading_dict = json.loads(clean_grading)
+                            except:
+                                pass
+                        
+                        if grading_dict:
+                            st.markdown("<div style='margin-top: 20px; font-weight: bold; color: #333; font-size: 14px;'>📊 評分比例與標準：</div>", unsafe_allow_html=True)
+                            grading_html = "<div style='background-color: #FFFFFF; border: 1px solid #DCD5CE; border-radius: 10px; padding: 12px; margin-top: 5px;'>"
+                            
+                            for item, desc in grading_dict.items():
+                                # 🔍 自動從文字中提取百分比
+                                pct_match = re.search(r'(\d+)%', desc)
+                                pct_val = int(pct_match.group(1)) if pct_match else (int(re.search(r'(\d+)', desc).group(1)) if re.search(r'(\d+)', desc) else 0)
+                                
+                                # 🚨 改為單行疊加，徹底消除多餘的空白縮排
+                                grading_html += f"<div style='margin-bottom: 10px;'>"
+                                grading_html += f"<div style='display: flex; justify-content: space-between; align-items: center; margin-bottom: 3px;'>"
+                                grading_html += f"<span style='font-size: 12px; font-weight: 800; color: #222; background-color: #EFEBE8; padding: 2px 8px; border-radius: 12px;'>📌 {item}</span>"
+                                grading_html += f"<span style='font-size: 12px; font-weight: 800; color: #4A7C59;'>{desc}</span>"
+                                grading_html += f"</div>"
+                                grading_html += f"<div style='background-color: #EAE6E3; border-radius: 4px; height: 6px; width: 100%; overflow: hidden;'>"
+                                grading_html += f"<div style='background-color: #4A7C59; height: 100%; width: {pct_val}%; border-radius: 4px;'></div>"
+                                grading_html += f"</div>"
+                                grading_html += f"</div>"
+                                
+                            grading_html += "</div>"
+                            st.markdown(grading_html, unsafe_allow_html=True)
+
+                    # 🚀 十八週進度動態渲染
+                    if '十八週進度' in c_data:
+                        syllabus_raw = c_data['十八週進度']
+                        syllabus_dict = {}
+                        if pd.notna(syllabus_raw) and str(syllabus_raw).strip() != "":
+                            try:
+                                if isinstance(syllabus_raw, dict):
+                                    syllabus_dict = syllabus_raw
+                                else:
+                                    clean_raw = str(syllabus_raw).replace("'", '"')
+                                    syllabus_dict = json.loads(clean_raw)
+                            except:
+                                pass
+                                
+                            if syllabus_dict:
+                                st.markdown("<div style='margin-top: 20px; font-weight: bold; color: #333; font-size: 14px;'>🗓️ 十八週課程大綱：</div>", unsafe_allow_html=True)
+                                html_weeks = "<div style='border: 1px solid #DCD5CE; border-radius: 8px; overflow: hidden; margin-top: 5px;'>"
+                                for i in range(1, 19):
+                                    w_key = f"W{i}"
+                                    w_content = syllabus_dict.get(w_key, "無資料")
+                                    bg_color = "#FFFFFF" if i % 2 != 0 else "#F8F6F1"
+                                    html_weeks += f"<div style='background-color: {bg_color}; padding: 6px 12px; border-bottom: 1px solid #EAE6E3; display: flex; align-items: flex-start;'><span style='font-weight: 800; color: #4A7C59; width: 45px; font-size: 12px; padding-top: 2px;'>第{i}週</span><span style='font-size: 12px; color: #444; flex: 1; line-height: 1.4;'>{w_content}</span></div>"
+                                html_weeks += "</div>"
+                                st.markdown(html_weeks, unsafe_allow_html=True)
                 
                 if st.button("❤️ 加入收藏", key="main_fav", use_container_width=True):
                     st.toast("已加入收藏！", icon="✨")
