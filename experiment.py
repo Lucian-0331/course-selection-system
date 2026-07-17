@@ -193,7 +193,7 @@ def get_fixed_grade_dist_data(course_code, difficulty):
 
 def generate_fake_comments(course_code, difficulty, engagement):
     random.seed(course_code)
-    names = ["工工三甲小神童", "期末被當專業戶", "逢甲路過小精靈", "學分小偷", "準時下課推廣大使", "坐在第一排的學霸"]
+    names = ["工工三甲小神童", "期末被當專業戶", "逢甲路過小精靈", "學分小偷", "準時下課推廣大使", "第一排的學霸"]
     contents = [
         "這門課真的硬，期中考都是計算題，建議一定要把老師發的練習題算三遍以上。",
         "期末專案要跑程式模擬，雖然很肝，但做完會覺得自己變強了很多。",
