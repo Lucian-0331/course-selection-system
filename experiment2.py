@@ -11,6 +11,7 @@ import random
 import datetime
 import streamlit.components.v1 as components
 import json
+import os
 
 # ==========================================
 # 🌟 雲端行為追蹤資料庫設定 (Supabase)
@@ -156,36 +157,70 @@ def process_tracker_data():
         st.session_state.tracker_msg = f"❌ 雲端寫入失敗: {e}"
 
 # ==========================================
-# 2. 統一資料讀取函數 (課程資料保留在本地 SQLite)
+# 2. 統一資料讀取函數 (🚀 導入網址參數、精準路徑與動態抽樣)
 # ==========================================
-@st.cache_data(ttl=3600)
-def load_data():
+url_params = st.query_params
+# 抓取舊系統的課程 ID 參數 (預設 old_ed)
+course_type = url_params.get("course", "old_ed")
+session_key = f"sampled_courses_{course_type}"
+
+if session_key not in st.session_state:
     try:
-        with sqlite3.connect('courses.db', timeout=10) as conn:
-            df = pd.read_sql_query("SELECT * FROM official_courses ORDER BY 選課代號", conn)
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        db_path = os.path.join(current_dir, '0610-course.db')
+
+        with sqlite3.connect(db_path, timeout=10) as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%';")
+            tables = cursor.fetchall()
+            
+            if not tables:
+                raise ValueError(f"連線成功，但 {db_path} 裡面找不到任何資料表！")
+            
+            actual_table_name = tables[0][0]
+            
+            # 🔍 對應 old_ed 與 old_pro 進行篩選
+            if course_type == "old_ed":
+                query = f'SELECT * FROM "{actual_table_name}" WHERE 課程類別 LIKE \'%一般通識%\' ORDER BY RANDOM() LIMIT 8'
+            elif course_type == "old_pro":
+                query = f'SELECT * FROM "{actual_table_name}" WHERE 課程類別 LIKE \'%資訊類通識%\' ORDER BY RANDOM() LIMIT 8'
+            else:
+                query = f'SELECT * FROM "{actual_table_name}" ORDER BY RANDOM() LIMIT 8'
+                
+            df = pd.read_sql_query(query, conn)
+
+    except Exception as e:
+        st.error(f"⚠️ 資料庫讀取失敗！錯誤訊息: {e}")
+        df = pd.DataFrame()
+
+    if df.empty:
+        df = pd.DataFrame(columns=['選課代號', '配當系所.1', '開課班級簡稱', '科目簡稱', 'yms_smester', '系所', '開課班級', '課程名稱', '學期', '滿意度', '難度', '十八週進度', '評分標準'])
+        df.loc[0] = ['無', '請選擇...', '請選擇...', '請選擇...', '1', '請選擇...', '請選擇...', '請選擇...', '上學期', 3.0, 3.0, '{}', '{}']
+    else:
         df['系所'] = df['配當系所.1'].fillna('未知系所')
         df['開課班級'] = df['開課班級簡稱'].fillna('未知班級')
-        df['課程名稱'] = df['科目簡稱'] + " (" + df['開課班級'] + ")"
+        df['課程名稱'] = df['科目簡稱'].astype(str) + " (" + df['開課班級'] + ")"
+
         def map_semester(x):
             x_str = str(x).strip()
-            if x_str in ['1', '1.0']: return '上學期'
-            if x_str in ['2', '2.0']: return '下學期'
-            return '(無)'
+            return '上學期' if x_str in ['1', '1.0'] else ('下學期' if x_str in ['2', '2.0'] else '(無)')
+        
         df['學期'] = df['yms_smester'].apply(map_semester)
         df = df.drop_duplicates(subset=['選課代號', '學期']).reset_index(drop=True)
         
         np.random.seed(42)
+        # 舊系統保留了「滿意度」與「難度」的欄位需求
         df['滿意度'] = np.random.uniform(2.5, 5.0, size=len(df)).round(1)
         df['難度'] = np.random.uniform(2.0, 5.0, size=len(df)).round(1)
         
-        radar_dict = {}
-        for _, row in df.iterrows():
-            radar_dict[row['選課代號']] = np.random.uniform(1.5, 5.0, 5).round(1).tolist()
-        return df, radar_dict
-    except Exception as e:
-        return pd.DataFrame(), {}
+    radar_dict = {}
+    for _, row in df.iterrows():
+        radar_dict[row['選課代號']] = np.random.uniform(1.5, 5.0, 5).round(1).tolist()
+        
+    st.session_state[session_key] = {"data": df, "radar": radar_dict}
 
-data, radar_data = load_data()
+data = st.session_state[session_key]["data"]
+radar_data = st.session_state[session_key]["radar"]
 categories = ["作業負擔", "考試難度", "實務性", "理論性", "互動程度"]
 
 @st.cache_data
@@ -495,96 +530,7 @@ with st.sidebar:
 # ==========================================
 # 5. 路由系統
 # ==========================================
-
-if st.session_state.current_page == "系統首頁":
-    current_enrolled_credits = sum(c['credits'] for c in st.session_state.my_courses if c.get('enrolled', False))
-    accumulated_credits = 85 
-    total_after_this_sem = accumulated_credits + current_enrolled_credits
-    needed_credits = max(128 - total_after_this_sem, 0)
-    
-    st.title(f"👋 歡迎回來，{st.session_state.name.split(' ')[0]}！")
-    st.markdown("<p style='font-size: 1.1rem; margin-bottom: 15px;'>在這裡掌握您的學習進度與最新課程動態，為新學期做好完美規劃。</p>", unsafe_allow_html=True)
-    
-    components.html(
-        """
-        <body style="margin: 0; padding: 0; overflow: hidden; background-color: transparent;">
-            <div style="font-family: sans-serif; display: flex; align-items: center;">
-                <div style="display: inline-flex; align-items: center; background-color: #FFFFFF; border: 1px solid #EAE6E3; padding: 6px 18px; border-radius: 30px; box-shadow: 0 2px 8px rgba(160, 150, 140, 0.1);">
-                    <span style="font-size: 16px; margin-right: 8px; color: #888;">🕒</span>
-                    <span style="color: #555; font-size: 15px; font-weight: 700; letter-spacing: 0.5px;">系統時間：<span id="clock" style="color: #4A7C59; font-family: monospace; font-size: 16px;"></span></span>
-                </div>
-            </div>
-            <script>
-                function updateTime() {
-                    const now = new Date();
-                    const year = now.getFullYear();
-                    const month = String(now.getMonth() + 1).padStart(2, '0');
-                    const day = String(now.getDate()).padStart(2, '0');
-                    const hours = String(now.getHours()).padStart(2, '0');
-                    const minutes = String(now.getMinutes()).padStart(2, '0');
-                    const seconds = String(now.getSeconds()).padStart(2, '0');
-                    document.getElementById('clock').innerText = `${year}年${month}月${day}日 ${hours}:${minutes}:${seconds}`;
-                }
-                setInterval(updateTime, 1000);
-                updateTime(); 
-            </script>
-        </body>
-        """,
-        height=45
-    )
-
-    st.markdown("### 📊 畢業學分進度")
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        with st.container(border=True):
-            st.markdown("<h4 style='color: #666;'>本學期預選學分</h4>", unsafe_allow_html=True)
-            st.markdown(f"<h2 style='font-size: 2.5rem; color: #4A7C59;'>{current_enrolled_credits} <span style='font-size: 1.2rem; color: #888;'>/ 25 學分</span></h2>", unsafe_allow_html=True)
-            st.progress(min(current_enrolled_credits / 25, 1.0))
-    with col2:
-        with st.container(border=True):
-            st.markdown("<h4 style='color: #666;'>累積畢業學分</h4>", unsafe_allow_html=True)
-            st.markdown(f"<h2 style='font-size: 2.5rem; color: #222;'>{total_after_this_sem} <span style='font-size: 1.2rem; color: #888;'>/ 128</span></h2>", unsafe_allow_html=True)
-            st.progress(min(total_after_this_sem / 128, 1.0))
-    with col3:
-        with st.container(border=True):
-            st.markdown("<h4 style='color: #666;'>距離畢業還需</h4>", unsafe_allow_html=True)
-            st.markdown(f"<h2 style='font-size: 2.5rem; color: #C85A5A;'>{needed_credits} <span style='font-size: 1.2rem; color: #888;'>學分</span></h2>", unsafe_allow_html=True)
-            if needed_credits > 40: st.markdown("<span style='color: #C85A5A; font-weight: 600;'>💡 建議本學期再修 2-3 門必修課</span>", unsafe_allow_html=True)
-            else: st.markdown("<span style='color: #4A7C59; font-weight: 600;'>✨ 進度領先！可以多探索興趣領域</span>", unsafe_allow_html=True)
-
-    st.markdown("<br>", unsafe_allow_html=True)
-    st.markdown("### 🚀 為您推薦的專屬課程")
-    rc1, rc2, rc3 = st.columns(3)
-    recommendations = [
-        {"name": "人因工程與實驗設計", "prof": "王教授", "time": "(四) 02-04", "match": "95%", "tags": ["專業必修", "實作豐富"]},
-        {"name": "系統動力學", "prof": "李教授", "time": "(二) 02-04", "match": "88%", "tags": ["專業選修", "邏輯訓練"]},
-        {"name": "資料庫設計", "prof": "張教授", "time": "(三) 06-08", "match": "82%", "tags": ["專業選修", "軟體應用"]},
-    ]
-    for i, course in enumerate(recommendations):
-        with [rc1, rc2, rc3][i]:
-            with st.container(border=True):
-                st.markdown(f"#### {course['name']}")
-                st.markdown(f"👨‍🏫 {course['prof']} | 🕒 {course['time']}")
-                st.markdown(f"<span class='tag tag-match'>{course['match']} 契合度</span><span class='tag'>{course['tags'][0]}</span><span class='tag'>{course['tags'][1]}</span>", unsafe_allow_html=True)
-                st.markdown("<hr style='margin: 15px 0;'>", unsafe_allow_html=True)
-                st.button("查看詳情", key=f"btn_hm_{i}", use_container_width=True, on_click=navigate_to, args=("詳細課程", None, course['name']))
-
-    st.markdown("<br>", unsafe_allow_html=True)
-    st.markdown("### 🔥 全校熱門搶手課程")
-    with st.container(border=True):
-        hot_courses = [
-            {"rank": 1, "name": "Python 程式設計與資料分析", "dept": "通識中心", "quota": "剩餘 2 名", "color": "#C85A5A"},
-            {"rank": 2, "name": "人工智慧概論", "dept": "資訊工程學系", "quota": "剩餘 5 名", "color": "#C85A5A"},
-            {"rank": 3, "name": "投資理財實務", "dept": "財務金融學系", "quota": "剩餘 12 名", "color": "#D4A373"},
-            {"rank": 4, "name": "心理學導論", "dept": "通識中心", "quota": "剩餘 20 名", "color": "#4A7C59"}
-        ]
-        for course in hot_courses:
-            st.markdown(f"<div style='display: flex; justify-content: space-between; align-items: center; padding: 12px 15px; border-bottom: 1px solid #EAE6E3;'><div style='display: flex; align-items: center;'><div style='width: 30px; height: 30px; background-color: #F0EBE6; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-weight: bold; margin-right: 15px; color: #555;'>{course['rank']}</div><div><span style='font-size: 1.1rem; font-weight: 800; color: #222;'>{course['name']}</span><br><span style='font-size: 0.9rem; color: #777;'>{course['dept']}</span></div></div><div><span style='background-color: {course['color']}20; color: {course['color']}; padding: 5px 12px; border-radius: 20px; font-weight: 800; font-size: 0.9rem;'>⏳ {course['quota']}</span></div></div>", unsafe_allow_html=True)
-
-elif st.session_state.current_page == "課程檢索系統":
-    # ==========================================
-    # 🌟 全域鎖定滾動 (鎖死全頁，僅允許區塊內部滑動)
-    # ==========================================
+if st.session_state.current_page == "課程檢索系統":
     st.markdown("""
     <style>
         .stApp { overflow: hidden !important; max-height: 100vh; }
@@ -592,10 +538,8 @@ elif st.session_state.current_page == "課程檢索系統":
     </style>
     """, unsafe_allow_html=True)
 
-    # 1. 標題更改為「🔍 課程檢索」
     st.markdown("<h2 style='color: #333; font-weight: 800; margin-bottom: 15px;'>🔍 課程檢索</h2>", unsafe_allow_html=True)
 
-    # 4:6 比例切割
     col_left, col_right = st.columns([4, 6])
 
     # ==========================================
@@ -604,94 +548,37 @@ elif st.session_state.current_page == "課程檢索系統":
     with col_left:
         with st.container(height=650, border=True):
             st.markdown("<div style='font-weight:bold; color:#555; margin-bottom:10px;'>🔍 全站課程搜尋</div>", unsafe_allow_html=True)
-            search_term = st.text_input("搜尋關鍵字", key="search_term", placeholder="請輸入課程名稱或選課代號...", label_visibility="collapsed")
+            # 實驗防呆：搜尋框禁用
+            search_term = st.text_input("搜尋關鍵字", key="search_term", placeholder="實驗鎖定中，禁用搜尋", disabled=True, label_visibility="collapsed")
             
             st.markdown("<div style='font-weight:bold; color:#555; margin-bottom:10px; margin-top:15px;'>📂 條件篩選面板</div>", unsafe_allow_html=True)
 
-            has_valid_filter = False
-            filtered = pd.DataFrame()
-            selected_course = "請選擇..."
-
-            if search_term:
-                st.selectbox("1. 系所：", ["(搜尋模式)"], disabled=True)
-                st.selectbox("2. 開課班級：", ["(搜尋模式)"], disabled=True)
-                st.selectbox("3. 學期：", ["(搜尋模式)"], disabled=True)
-                
-                filtered_by_search = data[data["課程名稱"].str.contains(search_term, na=False, case=False) | data["選課代號"].astype(str).str.contains(search_term, na=False, case=False)]
-                if not filtered_by_search.empty:
-                    course_options = ["請選擇..."] + filtered_by_search["課程名稱"].tolist()
-                    if st.session_state.saved_course not in course_options:
-                        st.session_state.saved_course = "請選擇..."
-                        st.session_state.target_course_id = None
-                        
-                    crs_idx = course_options.index(st.session_state.saved_course)
-                    selected_course = st.selectbox("4. 搜尋結果：", course_options, index=crs_idx)
-                    
-                    if selected_course != st.session_state.saved_course:
-                        st.session_state.saved_course = selected_course
-                        if selected_course != "請選擇...":
-                            matched_id = filtered_by_search[filtered_by_search['課程名稱'] == selected_course]['選課代號'].tolist()
-                            if matched_id: st.session_state.target_course_id = matched_id[0]
-                    has_valid_filter = True
-                    filtered = filtered_by_search
+            filtered = data  # 直接使用抽樣的 8 門課
+            
+            # 實驗鎖定：自動選取第一個真實資料，並禁用下拉選單
+            dept_options = ["請選擇..."] + sorted(data["系所"].unique().tolist())
+            dept = st.selectbox("1. 系所：", dept_options, index=1 if len(dept_options) > 1 else 0, disabled=True)
+            st.session_state.saved_dept = dept
+            
+            class_options = ["請選擇..."] + sorted(data[data["系所"]==dept]["開課班級"].unique().tolist()) if dept != "請選擇..." else ["請選擇..."]
+            class_sel = st.selectbox("2. 開課班級：", class_options, index=1 if len(class_options) > 1 else 0, disabled=True)
+            st.session_state.saved_class = class_sel
+            
+            sem_options = ["請選擇..."] + sorted(data[(data["系所"]==dept) & (data["開課班級"]==class_sel)]["學期"].unique().tolist()) if class_sel != "請選擇..." else ["請選擇..."]
+            semester_sel = st.selectbox("3. 學期：", sem_options, index=1 if len(sem_options) > 1 else 0, disabled=True)
+            st.session_state.saved_semester = semester_sel
+            
+            # 第 4 項：目標課程 (開放點選，列出所有 8 門課)
+            course_options = ["請選擇..."] + filtered["課程名稱"].tolist()
+            crs_idx = course_options.index(st.session_state.saved_course) if st.session_state.saved_course in course_options else 0
+            selected_course = st.selectbox("4. 課程：", course_options, index=crs_idx)
+            
+            if selected_course != st.session_state.saved_course:
+                st.session_state.saved_course = selected_course
+                if selected_course != "請選擇...":
+                    matched_id = filtered[filtered['課程名稱'] == selected_course]['選課代號'].tolist()
+                    if matched_id: st.session_state.target_course_id = matched_id[0]
                 else:
-                    selected_course = st.selectbox("4. 搜尋結果：", ["查無結果..."], disabled=True)
-                    st.session_state.saved_course = "請選擇..."
-                    st.session_state.target_course_id = None
-            else:
-                dept_options = ["請選擇..."] + sorted(data[data["系所"] != "未知系所"]["系所"].unique().tolist())
-                d_idx = dept_options.index(st.session_state.saved_dept) if st.session_state.saved_dept in dept_options else 0
-                dept = st.selectbox("1. 系所：", dept_options, index=d_idx)
-                st.session_state.saved_dept = dept
-
-                if dept != "請選擇...":
-                    filtered_by_dept = data[data["系所"] == dept]
-                    raw_classes = filtered_by_dept["開課班級"].unique().tolist()
-                    sorted_classes = sorted(raw_classes, key=lambda x: (1 if '一' in x else 2 if '二' in x else 3 if '三' in x else 9, 1 if '甲' in x else 2 if '乙' in x else 9, x))
-                    class_options = ["請選擇..."] + sorted_classes
-                    c_idx = class_options.index(st.session_state.saved_class) if st.session_state.saved_class in class_options else 0
-                    class_sel = st.selectbox("2. 開課班級：", class_options, index=c_idx)
-                    st.session_state.saved_class = class_sel
-                else: 
-                    class_sel = st.selectbox("2. 開課班級：", ["先選系所..."], disabled=True)
-                    st.session_state.saved_class = "請選擇..."
-
-                if class_sel not in ["請選擇...", "先選系所..."]:
-                    filtered_by_class = filtered_by_dept[filtered_by_dept["開課班級"] == class_sel]
-                    if '通識' in dept:
-                        semester_sel = st.selectbox("3. 學期：", ["(無)"], disabled=True)
-                        filtered_by_semester = filtered_by_class.drop_duplicates(subset=['課程名稱'])
-                    else:
-                        sorted_semesters = sorted(filtered_by_class["學期"].unique().tolist(), key=lambda sem: 1 if sem == '上學期' else 2)
-                        sem_options = ["請選擇..."] + sorted_semesters
-                        s_idx = sem_options.index(st.session_state.saved_semester) if st.session_state.saved_semester in sem_options else 0
-                        semester_sel = st.selectbox("3. 學期：", sem_options, index=s_idx)
-                        st.session_state.saved_semester = semester_sel
-                        filtered_by_semester = filtered_by_class[filtered_by_class["學期"] == semester_sel] if semester_sel != "請選擇..." else pd.DataFrame()
-                else:
-                    semester_sel = st.selectbox("3. 學期：", ["先選班級..."], disabled=True)
-                    st.session_state.saved_semester = "請選擇..."
-                    filtered_by_semester = pd.DataFrame()
-
-                if not filtered_by_semester.empty or (dept != "請選擇..." and '通識' in dept and class_sel != "請選擇..."):
-                    course_options = ["請選擇..."] + filtered_by_semester["課程名稱"].tolist()
-                    if st.session_state.saved_course not in course_options:
-                        st.session_state.saved_course = "請選擇..."
-                        st.session_state.target_course_id = None
-
-                    crs_idx = course_options.index(st.session_state.saved_course)
-                    selected_course = st.selectbox("4. 課程：", course_options, index=crs_idx)
-                    
-                    if selected_course != st.session_state.saved_course:
-                        st.session_state.saved_course = selected_course
-                        if selected_course != "請選擇...":
-                            matched_id = filtered_by_semester[filtered_by_semester['課程名稱'] == selected_course]['選課代號'].tolist()
-                            if matched_id: st.session_state.target_course_id = matched_id[0]
-                    has_valid_filter = True
-                    filtered = filtered_by_semester
-                else:
-                    selected_course = st.selectbox("4. 課程：", ["先選學期..."], disabled=True)
-                    st.session_state.saved_course = "請選擇..."
                     st.session_state.target_course_id = None
 
             def reset_all():
@@ -708,14 +595,12 @@ elif st.session_state.current_page == "課程檢索系統":
     # 右欄 (6)：課程完整資訊 (按鈕固定於底部)
     # ==========================================
     with col_right:
-        # 外層總容器，維持 650px 的框線
         with st.container(height=650, border=True):
             target_course_name = selected_course if selected_course not in ["請選擇...", "先選學期...", "查無結果..."] else None
 
             if not target_course_name:
-                st.info("👈 請從左側篩選或搜尋課程，以查看詳細資訊。")
+                st.info("👈 請從左側選單挑選課程，以查看詳細資訊。")
             else:
-                # --- 上半部：可滾動內容區 (高度 530px) ---
                 with st.container(height=530, border=False):
                     course_info = filtered[filtered["課程名稱"] == target_course_name].iloc[0]
                     current_code = str(course_info['選課代號'] if '選課代號' in course_info else "Unknown")
@@ -746,7 +631,40 @@ elif st.session_state.current_page == "課程檢索系統":
                                 with col_info2: st.markdown(content, unsafe_allow_html=True)
                             display_index += 1
 
-                # --- 下半部：固定按鈕區 (位於 650px 框框的底部) ---
+                    # 🚀 評分標準 (對照組：純文字設計)
+                    if '評分標準' in course_info:
+                        grading_raw = course_info['評分標準']
+                        grading_dict = {}
+                        if pd.notna(grading_raw) and str(grading_raw).strip() != "":
+                            try:
+                                if isinstance(grading_raw, dict): grading_dict = grading_raw
+                                else: grading_dict = json.loads(str(grading_raw).replace("'", '"'))
+                            except: pass
+                        
+                        if grading_dict:
+                            st.markdown("<div style='margin-top: 15px; background-color: #F8F6F1; padding: 16px; border-radius: 12px; border: 1px solid #E2DCD5;'><span style='font-weight: 800; color: #444; font-size: 1.05rem;'>📑 評分比例與標準：</span><br>", unsafe_allow_html=True)
+                            for item, desc in grading_dict.items():
+                                st.markdown(f"<span style='color: #222; font-weight: 600; font-size: 1rem; line-height: 1.6; display: block; margin-top: 5px;'>{item}：{desc}</span>", unsafe_allow_html=True)
+                            st.markdown("</div>", unsafe_allow_html=True)
+
+                    # 🚀 十八週進度 (對照組：純文字設計)
+                    if '十八週進度' in course_info:
+                        syllabus_raw = course_info['十八週進度']
+                        syllabus_dict = {}
+                        if pd.notna(syllabus_raw) and str(syllabus_raw).strip() != "":
+                            try:
+                                if isinstance(syllabus_raw, dict): syllabus_dict = syllabus_raw
+                                else: syllabus_dict = json.loads(str(syllabus_raw).replace("'", '"'))
+                            except: pass
+                        
+                        if syllabus_dict:
+                            st.markdown("<div style='margin-top: 15px; background-color: #F8F6F1; padding: 16px; border-radius: 12px; border: 1px solid #E2DCD5;'><span style='font-weight: 800; color: #444; font-size: 1.05rem;'>🗓️ 十八週課程大綱：</span><br>", unsafe_allow_html=True)
+                            for i in range(1, 19):
+                                w_key = f"W{i}"
+                                w_content = syllabus_dict.get(w_key, "無資料")
+                                st.markdown(f"<span style='color: #222; font-weight: 600; font-size: 1rem; line-height: 1.6; display: block; margin-top: 5px;'>第{i}週：{w_content}</span>", unsafe_allow_html=True)
+                            st.markdown("</div>", unsafe_allow_html=True)
+
                 st.markdown("<div style='border-top: 1px solid #EAE6E3; margin: 10px 0;'></div>", unsafe_allow_html=True)
                 col_btn1, col_btn2, col_btn3 = st.columns(3)
                 
@@ -1003,108 +921,3 @@ elif st.session_state.current_page == "我的收藏":
             table_html += "</table>"
             
             st.markdown(table_html, unsafe_allow_html=True)
-elif st.session_state.current_page == "個人設定":
-    st.markdown("<h2 style='margin-bottom: 20px; color: #333; font-weight: 800;'>👤 個人設定與偏好</h2>", unsafe_allow_html=True)
-
-    def reset_all_prefs():
-        for k in st.session_state.prefs["prof"]: st.session_state.prefs["prof"][k] = False
-        for k in st.session_state.prefs["cross"]: st.session_state.prefs["cross"][k] = False
-        for k in st.session_state.prefs["course"]: st.session_state.prefs["course"][k] = False
-        st.session_state.prefs["workload"] = "適中 😊"
-        st.session_state.show_uploader = False
-
-    with st.container(border=True):
-        col_header_left, col_header_right = st.columns([5, 1])
-        with col_header_left: st.markdown("### 基本資料")
-        with col_header_right:
-            if st.button("✏️ 編輯", use_container_width=True): st.session_state.editing = True
-                
-        col1, col2 = st.columns([1, 3])
-        with col1:
-            st.image(st.session_state.avatar, width=120)
-            if st.button("📸 更換頭像", use_container_width=True):
-                st.session_state.show_uploader = not st.session_state.show_uploader
-                st.rerun()
-                
-            if st.session_state.show_uploader:
-                uploaded_file = st.file_uploader("上傳新頭像", type=["jpg", "png", "jpeg"], label_visibility="collapsed")
-                if uploaded_file is not None:
-                    st.session_state.avatar = uploaded_file.getvalue()
-                    st.session_state.show_uploader = False
-                    st.rerun()
-
-        with col2:
-            if st.session_state.editing:
-                with st.form("edit_profile"):
-                    name_input = st.text_input("姓名", value=st.session_state.name)
-                    dept_input = st.text_input("系級", value=st.session_state.department)
-                    year_input = st.text_input("年級", value=st.session_state.year)
-                    col_form1, col_form2 = st.columns(2)
-                    with col_form1: submitted = st.form_submit_button("💾 儲存")
-                    with col_form2: cancel = st.form_submit_button("❌ 取消")
-                    if submitted:
-                        st.session_state.name, st.session_state.department, st.session_state.year, st.session_state.editing = name_input, dept_input, year_input, False
-                        st.rerun()
-                    if cancel:
-                        st.session_state.editing = False
-                        st.rerun()
-            else:
-                st.markdown(f"#### {st.session_state.name}")
-                st.write(f"**🎓 系級：** {st.session_state.department}")
-                st.write(f"**📚 年級：** {st.session_state.year}")
-            
-            st.markdown("<hr style='margin: 15px 0; border-color: #EAE6E3;'>", unsafe_allow_html=True)
-            
-            current_enrolled_req = sum(c['credits'] for c in st.session_state.my_courses if c.get('enrolled', False) and c['type'] == '必修')
-            current_enrolled_opt = sum(c['credits'] for c in st.session_state.my_courses if c.get('enrolled', False) and c['type'] != '必修')
-            req_credits = 55 + current_enrolled_req
-            opt_credits = 30 + current_enrolled_opt
-            total_creds = req_credits + opt_credits
-            
-            st.write(f"**🎓 畢業門檻進度 (目前累積 {total_creds} / 128 學分)：**")
-            col_grad1, col_grad2 = st.columns(2)
-            with col_grad1: 
-                st.write(f"**必修 ({req_credits} / 72)**")
-                st.progress(min(req_credits / 72, 1.0))
-            with col_grad2: 
-                st.write(f"**選修 ({opt_credits} / 56)**")
-                st.progress(min(opt_credits / 56, 1.0))
-
-    with st.container(border=True):
-        st.markdown("### ⭐ 興趣與跨域探索")
-        st.caption("下列選項將影響系統為您推薦的智能排課結果")
-        col_interest_left, col_interest_right = st.columns(2)
-        with col_interest_left:
-            st.markdown("##### 專業領域 (系內課群)")
-            for field in st.session_state.prefs["prof"].keys(): 
-                st.session_state.prefs["prof"][field] = st.checkbox(field, value=st.session_state.prefs["prof"][field])
-                
-        with col_interest_right:
-            st.markdown("##### 跨域/通識偏好 (向度分類)")
-            for field in st.session_state.prefs["cross"].keys(): 
-                st.session_state.prefs["cross"][field] = st.checkbox(field, value=st.session_state.prefs["cross"][field])
-
-    with st.container(border=True):
-        st.markdown("### ⚙️ 課程偏好設定")
-        col_pref1, col_pref2 = st.columns(2)
-        with col_pref1:
-            st.write("**偏好的作業負擔程度：**")
-            workload_options = ["輕鬆 😌", "適中 😊", "充實 💪", "極具挑戰 🔥"]
-            idx = workload_options.index(st.session_state.prefs["workload"])
-            st.session_state.prefs["workload"] = st.radio("選擇作業負擔程度", workload_options, index=idx, label_visibility="collapsed", horizontal=True)
-            st.caption(f"目前狀態：{st.session_state.prefs['workload']}")
-            
-        with col_pref2:
-            st.write("**課程類型偏好：**")
-            course_types = ["理論課", "實驗課", "線上課程", "混合制"]
-            cols_type = st.columns(4)
-            for i, course in enumerate(course_types):
-                with cols_type[i]: 
-                    st.session_state.prefs["course"][course] = st.checkbox(course, value=st.session_state.prefs["course"][course])
-
-    st.write("") 
-    col_save1, col_save2, col_save3 = st.columns([1, 1, 2])
-    with col_save1:
-        if st.button("💾 儲存所有設定", use_container_width=True): st.success("✅ 設定已存檔")
-    with col_save2:
-        if st.button("🔄 重置偏好", on_click=reset_all_prefs, use_container_width=True): st.warning("⚠️ 已重置為預設興趣與課程偏好")
