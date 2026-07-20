@@ -121,7 +121,7 @@ session_key = f"sampled_courses_{course_type}"
 if session_key not in st.session_state:
     try:
         current_dir = os.path.dirname(os.path.abspath(__file__))
-        db_path = os.path.join(current_dir, '0610-course.db')
+        db_path = os.path.join(current_dir, '0720-course.db')
 
         with sqlite3.connect(db_path, timeout=10) as conn:
             # 動態抓取資料表名稱
@@ -386,30 +386,35 @@ if st.session_state.current_page == "視覺化介面":
                             grading_html += "</div>"
                             st.markdown(grading_html, unsafe_allow_html=True)
 
-                    # 🚀 十八週進度動態渲染
+                    # 🚀 十八週進度動態渲染 (升級版：完美支援 List 與 Dict 兩種格式)
                     if '十八週進度' in c_data:
                         syllabus_raw = c_data['十八週進度']
-                        syllabus_dict = {}
+                        parsed_syllabus = None
                         if pd.notna(syllabus_raw) and str(syllabus_raw).strip() != "":
                             try:
-                                if isinstance(syllabus_raw, dict):
-                                    syllabus_dict = syllabus_raw
+                                if isinstance(syllabus_raw, (dict, list)):
+                                    parsed_syllabus = syllabus_raw
                                 else:
-                                    clean_raw = str(syllabus_raw).replace("'", '"')
-                                    syllabus_dict = json.loads(clean_raw)
+                                    parsed_syllabus = json.loads(str(syllabus_raw).replace("'", '"'))
                             except:
                                 pass
                                 
-                            if syllabus_dict:
-                                st.markdown("<div style='margin-top: 20px; font-weight: bold; color: #333; font-size: 14px;'>🗓️ 十八週課程大綱：</div>", unsafe_allow_html=True)
-                                html_weeks = "<div style='border: 1px solid #DCD5CE; border-radius: 8px; overflow: hidden; margin-top: 5px;'>"
-                                for i in range(1, 19):
-                                    w_key = f"W{i}"
-                                    w_content = syllabus_dict.get(w_key, "無資料")
-                                    bg_color = "#FFFFFF" if i % 2 != 0 else "#F8F6F1"
-                                    html_weeks += f"<div style='background-color: {bg_color}; padding: 6px 12px; border-bottom: 1px solid #EAE6E3; display: flex; align-items: flex-start;'><span style='font-weight: 800; color: #4A7C59; width: 45px; font-size: 12px; padding-top: 2px;'>第{i}週</span><span style='font-size: 12px; color: #444; flex: 1; line-height: 1.4;'>{w_content}</span></div>"
-                                html_weeks += "</div>"
-                                st.markdown(html_weeks, unsafe_allow_html=True)
+                        if parsed_syllabus:
+                            st.markdown("<div style='margin-top: 20px; font-weight: bold; color: #333; font-size: 14px;'>🗓️ 十八週課程大綱：</div>", unsafe_allow_html=True)
+                            html_weeks = "<div style='border: 1px solid #DCD5CE; border-radius: 8px; overflow: hidden; margin-top: 5px;'>"
+                            
+                            # 判斷是 List 還是 Dict，統一轉換為有序的清單
+                            week_contents = []
+                            if isinstance(parsed_syllabus, list):
+                                week_contents = parsed_syllabus
+                            elif isinstance(parsed_syllabus, dict):
+                                week_contents = [parsed_syllabus.get(f"W{i}", "無資料") for i in range(1, 19)]
+                                
+                            for i, w_content in enumerate(week_contents, start=1):
+                                bg_color = "#FFFFFF" if i % 2 != 0 else "#F8F6F1"
+                                html_weeks += f"<div style='background-color: {bg_color}; padding: 6px 12px; border-bottom: 1px solid #EAE6E3; display: flex; align-items: flex-start;'><span style='font-weight: 800; color: #4A7C59; width: 45px; font-size: 12px; padding-top: 2px;'>第{i}週</span><span style='font-size: 12px; color: #444; flex: 1; line-height: 1.4;'>{w_content}</span></div>"
+                            html_weeks += "</div>"
+                            st.markdown(html_weeks, unsafe_allow_html=True)
                 
                 if st.button("❤️ 加入收藏", key="main_fav", use_container_width=True):
                     st.toast("已加入收藏！", icon="✨")
