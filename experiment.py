@@ -464,11 +464,20 @@ if st.session_state.current_page == "視覺化介面":
             if st.session_state.target_course_id:
                 c_code = st.session_state.target_course_id
                 c_info = data[data["選課代號"] == c_code].iloc[0]
-                if c_code not in st.session_state.comments_db: st.session_state.comments_db[c_code] = generate_fake_comments(c_code, c_info['難度'], c_info['教學參與性'])
+                if c_code not in st.session_state.comments_db: 
+                    st.session_state.comments_db[c_code] = generate_fake_comments(c_code, c_info['難度'], c_info['教學參與性'])
+                
+                # 🚀 討論區文字放大與排版優化版
                 for comment in st.session_state.comments_db[c_code]:
-                    st.markdown(f'''<div style="background-color: #F8F6F1; padding: 8px; border-radius: 8px; margin-bottom: 6px; border-left: 4px solid #A3968C;"><span style="font-weight: 800; font-size: 11px;">{comment['user']}</span><br><span style="font-size: 12px; color: #444;">{comment['content']}</span></div>''', unsafe_allow_html=True)
+                    st.markdown(f"""
+                    <div style="background-color: #F8F6F1; padding: 12px 14px; border-radius: 8px; margin-bottom: 10px; border-left: 4px solid #A3968C; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+                        <div style="font-weight: 800; font-size: 15px; color: #333; margin-bottom: 4px;">{comment['user']}</div>
+                        <div style="font-size: 14px; color: #444; line-height: 1.6;">{comment['content']}</div>
+                    </div>
+                    """, unsafe_allow_html=True)
             else:
-                st.markdown("<div style='color:#aaa; font-size:13px; text-align:center; padding-top:50px;'>等待選擇課程...</div>", unsafe_allow_html=True)
+                # 空白提示的字也順便微調大一點點
+                st.markdown("<div style='color:#aaa; font-size:14px; text-align:center; padding-top:50px;'>等待選擇課程...</div>", unsafe_allow_html=True)
 
     # ------------------------------------------
     # ➡️ 右半部：詳細資訊 (上) 與 雙圖表 (下)
@@ -482,7 +491,7 @@ if st.session_state.current_page == "視覺化介面":
                 st.markdown(f"<div style='background-color: #E2DCD5; padding: 4px 12px; border-radius: 8px; display: inline-block; margin-bottom: 10px; font-weight: bold; color: #222; font-size: 13px;'>[112-上學期] [{c_data['選課代號']}] {c_data['科目簡稱']}</div>", unsafe_allow_html=True)
                 
                 # 內部捲動區：放置大量欄位
-                with st.container(height=220, border=False):
+                with st.container(height=175, border=False):
                     col_info1, col_info2 = st.columns(2)
                     with col_info1:
                         st.markdown(f"**選課代號：** {c_data['選課代號']}")
@@ -500,70 +509,62 @@ if st.session_state.current_page == "視覺化介面":
                     st.markdown(f"""<div style='background-color: #F8F6F1; padding: 10px; border-radius: 8px; margin-top:10px;'><b>📖 課程描述_中：</b><br><span style='font-size:13px;'>本課程將介紹{c_data['科目簡稱']}之核心理論與實務應用，內容包含模型推推導、數據分析與實際案例演練。</span></div>""", unsafe_allow_html=True)
                     st.markdown(f"""<div style='background-color: #F8F6F1; padding: 10px; border-radius: 8px; margin-top:8px;'><b>📖 課程描述_英：</b><br><span style='font-size:13px;'>This course provides an overview of {c_data['科目簡稱']} through theory and practice, focusing on data-driven decision making.</span></div>""", unsafe_allow_html=True)
                     
-                    # 🚀 新增：評分標準動態渲染 (修復 Markdown 縮排判定成程式碼的問題)
+                    # 🚀 評分標準動態渲染 (字體放大版)
                     if '評分標準' in c_data:
                         grading_raw = c_data['評分標準']
                         grading_dict = {}
                         if pd.notna(grading_raw) and str(grading_raw).strip() != "":
                             try:
-                                if isinstance(grading_raw, dict):
-                                    grading_dict = grading_raw
-                                else:
-                                    clean_grading = str(grading_raw).replace("'", '"')
-                                    grading_dict = json.loads(clean_grading)
-                            except:
-                                pass
+                                if isinstance(grading_raw, dict): grading_dict = grading_raw
+                                else: grading_dict = json.loads(str(grading_raw).replace("'", '"'))
+                            except: pass
                         
                         if grading_dict:
-                            st.markdown("<div style='margin-top: 20px; font-weight: bold; color: #333; font-size: 14px;'>📊 評分比例與標準：</div>", unsafe_allow_html=True)
-                            grading_html = "<div style='background-color: #FFFFFF; border: 1px solid #DCD5CE; border-radius: 10px; padding: 12px; margin-top: 5px;'>"
+                            # 標題放大至 15px
+                            st.markdown("<div style='margin-top: 20px; font-weight: bold; color: #333; font-size: 15px;'>📊 評分比例與標準：</div>", unsafe_allow_html=True)
+                            grading_html = "<div style='background-color: #FFFFFF; border: 1px solid #DCD5CE; border-radius: 10px; padding: 14px; margin-top: 5px;'>"
                             
                             for item, desc in grading_dict.items():
-                                # 🔍 自動從文字中提取百分比
                                 pct_match = re.search(r'(\d+)%', desc)
                                 pct_val = int(pct_match.group(1)) if pct_match else (int(re.search(r'(\d+)', desc).group(1)) if re.search(r'(\d+)', desc) else 0)
                                 
-                                # 🚨 改為單行疊加，徹底消除多餘的空白縮排
-                                grading_html += f"<div style='margin-bottom: 10px;'>"
-                                grading_html += f"<div style='display: flex; justify-content: space-between; align-items: center; margin-bottom: 3px;'>"
-                                grading_html += f"<span style='font-size: 12px; font-weight: 800; color: #222; background-color: #EFEBE8; padding: 2px 8px; border-radius: 12px;'>📌 {item}</span>"
-                                grading_html += f"<span style='font-size: 12px; font-weight: 800; color: #4A7C59;'>{desc}</span>"
+                                grading_html += f"<div style='margin-bottom: 12px;'>"
+                                grading_html += f"<div style='display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;'>"
+                                # 🔍 內容字體放大至 14px，並增加 padding 讓膠囊標籤變大
+                                grading_html += f"<span style='font-size: 14px; font-weight: 800; color: #222; background-color: #EFEBE8; padding: 4px 10px; border-radius: 14px;'>📌 {item}</span>"
+                                grading_html += f"<span style='font-size: 14px; font-weight: 800; color: #4A7C59;'>{desc}</span>"
                                 grading_html += f"</div>"
-                                grading_html += f"<div style='background-color: #EAE6E3; border-radius: 4px; height: 6px; width: 100%; overflow: hidden;'>"
+                                # 🔍 稍微加粗進度條 (height 8px) 讓視覺更明顯
+                                grading_html += f"<div style='background-color: #EAE6E3; border-radius: 4px; height: 8px; width: 100%; overflow: hidden;'>"
                                 grading_html += f"<div style='background-color: #4A7C59; height: 100%; width: {pct_val}%; border-radius: 4px;'></div>"
-                                grading_html += f"</div>"
-                                grading_html += f"</div>"
+                                grading_html += f"</div></div>"
                                 
                             grading_html += "</div>"
                             st.markdown(grading_html, unsafe_allow_html=True)
 
-                    # 🚀 十八週進度動態渲染 (升級版：完美支援 List 與 Dict 兩種格式)
+                    # 🚀 十八週進度動態渲染 (字體放大版)
                     if '十八週進度' in c_data:
                         syllabus_raw = c_data['十八週進度']
                         parsed_syllabus = None
                         if pd.notna(syllabus_raw) and str(syllabus_raw).strip() != "":
                             try:
-                                if isinstance(syllabus_raw, (dict, list)):
-                                    parsed_syllabus = syllabus_raw
-                                else:
-                                    parsed_syllabus = json.loads(str(syllabus_raw).replace("'", '"'))
-                            except:
-                                pass
+                                if isinstance(syllabus_raw, (dict, list)): parsed_syllabus = syllabus_raw
+                                else: parsed_syllabus = json.loads(str(syllabus_raw).replace("'", '"'))
+                            except: pass
                                 
                         if parsed_syllabus:
-                            st.markdown("<div style='margin-top: 20px; font-weight: bold; color: #333; font-size: 14px;'>🗓️ 十八週課程大綱：</div>", unsafe_allow_html=True)
+                            # 標題放大至 15px
+                            st.markdown("<div style='margin-top: 20px; font-weight: bold; color: #333; font-size: 15px;'>🗓️ 十八週課程大綱：</div>", unsafe_allow_html=True)
                             html_weeks = "<div style='border: 1px solid #DCD5CE; border-radius: 8px; overflow: hidden; margin-top: 5px;'>"
                             
-                            # 判斷是 List 還是 Dict，統一轉換為有序的清單
                             week_contents = []
-                            if isinstance(parsed_syllabus, list):
-                                week_contents = parsed_syllabus
-                            elif isinstance(parsed_syllabus, dict):
-                                week_contents = [parsed_syllabus.get(f"W{i}", "無資料") for i in range(1, 19)]
+                            if isinstance(parsed_syllabus, list): week_contents = parsed_syllabus
+                            elif isinstance(parsed_syllabus, dict): week_contents = [parsed_syllabus.get(f"W{i}", "無資料") for i in range(1, 19)]
                                 
                             for i, w_content in enumerate(week_contents, start=1):
                                 bg_color = "#FFFFFF" if i % 2 != 0 else "#F8F6F1"
-                                html_weeks += f"<div style='background-color: {bg_color}; padding: 6px 12px; border-bottom: 1px solid #EAE6E3; display: flex; align-items: flex-start;'><span style='font-weight: 800; color: #4A7C59; width: 45px; font-size: 12px; padding-top: 2px;'>第{i}週</span><span style='font-size: 12px; color: #444; flex: 1; line-height: 1.4;'>{w_content}</span></div>"
+                                # 🔍 字體放大至 14px，標籤寬度增加至 55px (避免文字被擠到下一行)，行高(line-height)設為 1.5 增加閱讀舒適度
+                                html_weeks += f"<div style='background-color: {bg_color}; padding: 8px 12px; border-bottom: 1px solid #EAE6E3; display: flex; align-items: flex-start;'><span style='font-weight: 800; color: #4A7C59; width: 55px; font-size: 14px; padding-top: 2px;'>第{i}週</span><span style='font-size: 14px; color: #444; flex: 1; line-height: 1.5;'>{w_content}</span></div>"
                             html_weeks += "</div>"
                             st.markdown(html_weeks, unsafe_allow_html=True)
                 
