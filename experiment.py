@@ -578,17 +578,24 @@ if st.session_state.current_page == "視覺化介面":
             cc1, cc2 = st.columns(2)
             if st.session_state.target_course_id:
                 c_id = st.session_state.target_course_id
+                
+                # 🚀 關鍵修復：取得這門課真實的難度數值，等一下畫圖要用！
+                real_difficulty = float(c_data['難度']) 
+                
                 # 左圖：長條圖
                 with cc1:
                     st.markdown("<div style='font-weight:bold; color:#555; text-align:center; font-size:0.9rem;'>📊 去年成績分佈</div>", unsafe_allow_html=True)
-                    dist_df = get_fixed_grade_dist_data(c_id, 3.0)
+                    # 確實將 real_difficulty 傳入函數
+                    dist_df = get_fixed_grade_dist_data(c_id, real_difficulty)
                     fig_dist = go.Figure(data=[go.Bar(x=dist_df['Range'], y=dist_df['Count'], marker_color='#85ACCB')])
                     fig_dist.update_layout(height=230, margin=dict(l=10, r=10, t=10, b=10), paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', xaxis=dict(tickfont=dict(size=8)), yaxis=dict(tickfont=dict(size=8)))
                     st.plotly_chart(fig_dist, use_container_width=True, config={'staticPlot': True}, key="bar_sub")
+                    
                 # 右圖：折線圖
                 with cc2:
                     st.markdown("<div style='font-weight:bold; color:#555; text-align:center; font-size:0.9rem;'>📈 歷年修課趨勢</div>", unsafe_allow_html=True)
-                    trend_df = get_fixed_trend_data(c_id)
+                    # 🚀 確實將 real_difficulty 傳入函數，解決報錯！
+                    trend_df = get_fixed_trend_data(c_id, real_difficulty)
                     fig_trend = go.Figure()
                     fig_trend.add_trace(go.Scatter(x=trend_df.Year, y=trend_df.AvgScore, name='平均', line=dict(color='#C85A5A', width=2)))
                     fig_trend.add_trace(go.Scatter(x=trend_df.Year, y=trend_df.Students, name='人數', line=dict(color='#4A7C59', width=2), yaxis='y2'))
@@ -596,7 +603,6 @@ if st.session_state.current_page == "視覺化介面":
                     st.plotly_chart(fig_trend, use_container_width=True, config={'staticPlot': True}, key="line_sub")
             else:
                 st.plotly_chart(go.Figure().update_layout(height=230, plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', xaxis=dict(visible=False), yaxis=dict(visible=False)), use_container_width=True, key="empty_sub")
-
 # ==========================================
 # 6. 我的收藏頁面 (略)
 # ==========================================
