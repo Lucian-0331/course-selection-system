@@ -167,7 +167,7 @@ session_key = f"sampled_courses_{course_type}"
 if session_key not in st.session_state:
     try:
         current_dir = os.path.dirname(os.path.abspath(__file__))
-        db_path = os.path.join(current_dir, '0610-course.db')
+        db_path = os.path.join(current_dir, '0721-course.db')
 
         with sqlite3.connect(db_path, timeout=10) as conn:
             cursor = conn.cursor()
